@@ -2487,8 +2487,8 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
    }
    if(id==='admin-login-send'){
     const email=q('admin-login-email').value.trim();if(!/^\S+@\S+\.\S+$/.test(email))throw Error('請輸入已綁定的電子郵件。');
-    await req('otp?redirect_to='+encodeURIComponent(location.origin+location.pathname),{method:'POST',body:JSON.stringify({email,create_user:false})});
-    message('已要求寄送 6 位數登入碼。請查看信件中的數字驗證碼；若信中仍是 Sign in 按鈕，請先修改 Supabase Magic Link 郵件範本，不要貼連結。');
+    message('管理員恢復功能暫停：Supabase 郵件範本仍使用 Sign in 連結，尚未完成安全的裝置轉移部署。為避免重複寄送無法使用的郵件，目前不會寄信，也不會更改登入資料。');
+    return;
    }
    if(id==='admin-login-verify'){
     const email=q('admin-login-email').value.trim(),code=q('admin-login-code').value.trim();
