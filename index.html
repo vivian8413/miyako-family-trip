@@ -1190,7 +1190,7 @@ document.addEventListener('click',async event=>{
  async function run(fn){if(busy)return;busy=true;const buttons=[el('cloud-memo-form')?.querySelector('button')].filter(Boolean);buttons.forEach(b=>b.disabled=true);try{await fn()}catch(e){status('操作未完成：'+String(e?.message||e).slice(0,200))}finally{busy=false;buttons.forEach(b=>{if(b.isConnected)b.disabled=false})}}
  function autoLoad(force=false){
   if(!el('cloud-memo-list')||document.hidden||busy)return;
-  if(!force&&Date.now()-lastLoad<12000)return;
+  if(!force&&Date.now()-lastLoad<4000)return;
   run(async()=>{await load()});
  }
  document.addEventListener('miyako-memos-open',()=>autoLoad(true));
@@ -2910,7 +2910,7 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
    if(typeof state!=='undefined'&&state.page==='notifications'&&typeof render==='function')render();
   }catch(err){
    const status=document.getElementById('cloud-notification-status');
-   if(status)status.textContent='目前尚未完成雲端通知設定；需要先在 Supabase 執行通知資料庫 SQL。';
+   if(status)status.textContent='無法同步通知：'+String(err?.message||err)+'。請確認家人登入狀態或稍後重試。';
   }finally{busy=false}
  }
  document.addEventListener('click',async e=>{
@@ -2926,7 +2926,7 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
  },true);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void load(true)});
  document.getElementById('notification-bell')?.addEventListener('click',()=>void load(true));
- setInterval(()=>void load(),15000);
+ setInterval(()=>void load(),5000);
  void load(true);
 })();
 </script></body></html>
