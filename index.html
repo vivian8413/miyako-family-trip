@@ -2604,7 +2604,6 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
   if(!r.ok)throw Error(r.status===404?'雲端安全碼功能尚未安裝，請先執行 Supabase SQL。':String(d?.message||'雲端驗證失敗').slice(0,130));
   return d;
  }
- let lastAdminPanel=null;
  async function loadAdmin(panel){
   const select=panel.querySelector('#nickname-code-target');
   const status=panel.querySelector('#nickname-code-admin-result');
