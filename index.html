@@ -2699,12 +2699,19 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
    const current=JSON.parse(localStorage.getItem(STORE)||'null');
    if(current?.user_id!==user.id)throw Error('查詢期間登入身分改變，已停止顯示。');
    const matched=rows.filter(x=>String(x.nickname||'').trim()==='雲☁️');
-   status.textContent='讀取 '+rows.length+' 筆可見家人紀錄；雲☁️符合暱稱 '+matched.length+' 筆。請比對手機末 8 碼 08785c79。';
+   let mappedIds=null;
+   try{
+    const mapping=await fetch(BASE+'/rest/v1/trip_expense_member_slots?select=auth_user_id,slot&limit=9',{headers,cache:'no-store'});
+    if(mapping.ok){const slots=await mapping.json();if(Array.isArray(slots))mappedIds=new Set(slots.filter(x=>Number(x.slot)>=1&&Number(x.slot)<=9).map(x=>x.auth_user_id));}
+   }catch{}
+   const legacyNames=new Set(['慈','雲☁️']);
+   const hiddenRows=mappedIds===null?[]:rows.filter(x=>x.auth_user_id!==user.id&&!mappedIds.has(x.auth_user_id)&&legacyNames.has(String(x.nickname||'').trim()));
+   status.textContent='讀取 '+rows.length+' 筆可見家人紀錄；雲☁️同名 '+matched.length+' 筆；'+(mappedIds===null?'費用編號無法讀取，暫不能判定隱藏名單。':'依目前名單規則隱藏 '+hiddenRows.length+' 筆（不代表已確認可刪除）。')+' 請比對手機末 8 碼 08785c79。';
    for(const x of rows){
     const line=document.createElement('p');line.className='muted';
     const suffix=typeof x.auth_user_id==='string'?x.auth_user_id.slice(-8):'無法讀取';
     const match=suffix.toLowerCase()==='08785c79';
-    line.textContent=(x.nickname||'（未設定暱稱）')+' · 身分末 8 碼：'+suffix+(match?' ✓ 與雲☁️目前手機相同':'');
+    line.textContent=(hiddenRows.includes(x)?'🟠 名單隱藏 · ':'')+(x.nickname||'（未設定暱稱）')+' · 身分末 8 碼：'+suffix+(match?' ✓ 與雲☁️目前手機相同':'');
     list.appendChild(line);
    }
    if(!rows.length)status.textContent='目前查不到可見家人紀錄，未修改任何資料。';
