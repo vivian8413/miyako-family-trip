@@ -2925,7 +2925,31 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
   }catch{alert('目前無法更新已讀狀態，請稍後重試')}
  },true);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void load(true)});
- document.getElementById('notification-bell')?.addEventListener('click',()=>void load(true));
+ document.getElementById('notification-bell')?.addEventListener('click',()=>{
+  if(typeof state!=='undefined'&&state.page==='notifications'){
+   void (async()=>{
+    await load(true);
+    const ids=(window.__miyakoCloudNotifications||[]).filter(n=>!n.read_at).map(n=>n.id);
+    if(!ids.length)return;
+    // Count two seconds from opening. Closing the panel does not cancel reading.
+    setTimeout(async()=>{
+     try{
+      await request('PATCH','family_app_notifications?id=in.('+ids.map(encodeURIComponent).join(',')+')&read_at=is.null',{read_at:new Date().toISOString()});
+      const now=new Date().toISOString(),marked=new Set(ids.map(String));
+      if(Array.isArray(window.__miyakoCloudNotifications)){
+       window.__miyakoCloudNotifications=window.__miyakoCloudNotifications.map(n=>marked.has(String(n.id))?{...n,read_at:n.read_at||now}:n);
+      }
+      if(typeof updateBell==='function')updateBell();
+      if(typeof state!=='undefined'&&state.page==='notifications'&&typeof render==='function')render();
+      lastLoad=0;void load(true);
+     }catch(e){
+      const status=document.getElementById('cloud-notification-status');
+      if(status)status.textContent='通知已讀同步失敗，請稍後再試';
+     }
+    },2000);
+   })();
+  }
+ });
  setInterval(()=>void load(),5000);
  void load(true);
 })();
