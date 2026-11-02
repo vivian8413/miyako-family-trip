@@ -697,8 +697,15 @@ const minToClock=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).pa
 const dayEvents=()=>state.editedDays?.[state.day]||days[state.day].events;
 function addNotification(title,detail){state.notifications.unshift({id:Date.now()+Math.random(),title,detail,createdAt:new Date().toISOString(),read:false});state.notifications=state.notifications.slice(0,80);put('notifications',state.notifications);updateBell();if(state.page==='memos')document.dispatchEvent(new Event('miyako-memos-open'))}
 const HEADER_BELL_ICON=`<svg class="header-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>`;
-function updateBell(){const n=state.notifications.filter(x=>!x.read).length;window.__miyakoSetBadgeCount?.(n);const bell=$('#notification-bell');if(!bell)return;bell.innerHTML=HEADER_BELL_ICON+(n?'<span class="bell-dot" aria-hidden="true"></span>':'');bell.setAttribute('aria-label',n?`查看通知，有 ${n} 則未讀`:'查看通知，沒有未讀')}
-function notifications(){return pageTitle('🔔 通知中心','目前僅顯示本機行程操作紀錄；家人即時動態與系統推播尚待串接。')+`<div class="card"><div class="row"><h3 style="margin:0">行程通知</h3><button class="btn secondary" data-action="read-notifications" ${state.notifications.every(x=>x.read)?'disabled':''}>全部標為已讀</button></div>${state.notifications.length?state.notifications.map(n=>`<div class="notice-item ${n.read?'':'unread'}"><b>${escapeHtml(n.title)}</b><p>${escapeHtml(n.detail)}</p><time>${new Date(n.createdAt).toLocaleString('zh-TW')}</time></div>`).join(''):'<div class="empty">目前沒有新通知 🐢</div>'}</div><div class="note">目前只記錄這台手機的行程操作；家人新增費用、備忘、照片的跨手機通知及手機推播尚未啟用。</div>`}
+function updateBell(){const cloud=window.__miyakoCloudNotifications;const n=Array.isArray(cloud)?cloud.filter(x=>!x.read_at).length:0;window.__miyakoSetBadgeCount?.(n);const bell=$('#notification-bell');if(!bell)return;bell.innerHTML=HEADER_BELL_ICON+(n?'<span class="bell-dot" aria-hidden="true"></span>':'');bell.setAttribute('aria-label',n?`查看通知，有 ${n} 則未讀`:'查看通知，沒有未讀')}
+function notifications(){
+ const cloud=window.__miyakoCloudNotifications;
+ if(Array.isArray(cloud)){
+  const unread=cloud.filter(x=>!x.read_at).length;
+  return pageTitle('🔔 通知中心','家人共用更新 · 每位家人獨立計算未讀')+`<div class="card"><div class="row"><h3 style="margin:0">家人最新動態（未讀 ${unread}）</h3><button class="btn secondary" data-action="cloud-notifications-read-all" ${unread?'':'disabled'}>全部標為已讀</button></div>${cloud.length?cloud.map(n=>`<div class="notice-item ${n.read_at?'':'unread'}"><b>${escapeHtml(n.title||'家人更新')}</b><p>${escapeHtml(n.detail||'')}</p><time>${new Date(n.created_at).toLocaleString('zh-TW')}</time>${n.read_at?'':`<button class="mini-btn" data-cloud-notification-read="${n.id}">標為已讀</button>`}</div>`).join(''):'<div class="empty">目前沒有家人更新通知 🐢</div>'}</div>`;
+ }
+ return pageTitle('🔔 通知中心','正在連線家人共用通知')+`<div class="card"><p class="muted" id="cloud-notification-status">正在讀取雲端通知…</p></div>`;
+}
 function saveDay(events){if(!state.editedDays)state.editedDays=days.map(d=>d.events.map(e=>[...e]));state.editedDays[state.day]=events;put('editedDays',state.editedDays)}
 function smartArrange(){
  const ev=dayEvents().map(e=>[...e]);const fixed=ev.filter(fixedEvent).map(e=>({start:clockToMin(e[0]),end:clockToMin(e[0])+durationOf(e)})).sort((a,b)=>a.start-b.start);
@@ -2874,5 +2881,52 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
   }catch(e){ /* unsupported or denied: bell still works */ }
  }
  window.__miyakoSetBadgeCount=setCount;
+})();
+</script><script id="miyako-cloud-notifications-v3382">
+(()=>{
+ const BASE='https://pmbnvkopdscvscaxukpk.supabase.co';
+ const KEY='sb_publishable_n-I_zcqVJd9sGQuvQFWHgQ_DTwtsSrM';
+ const STORE='miyako_auth_v18';
+ let busy=false,lastUser='',lastLoad=0;
+ function credentials(){try{const a=JSON.parse(localStorage.getItem(STORE)||'null');return a?.access_token&&a?.user_id?a:null}catch{return null}}
+ async function request(method,path,body){
+  const a=credentials();if(!a)throw Error('尚未取得家人登入身分');
+  const res=await fetch(BASE+'/rest/v1/'+path,{method,headers:{apikey:KEY,Authorization:'Bearer '+a.access_token,'Content-Type':'application/json',Prefer:'return=representation'},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+  if(!res.ok)throw Error('雲端通知尚未就緒（HTTP '+res.status+'）');
+  return res.json();
+ }
+ async function load(force=false){
+  if(busy||document.hidden)return;
+  const a=credentials();if(!a)return;
+  if(!force&&Date.now()-lastLoad<12000)return;
+  busy=true;
+  try{
+   if(lastUser&&lastUser!==a.user_id)window.__miyakoCloudNotifications=null;
+   lastUser=a.user_id;
+   const rows=await request('GET','family_app_notifications?select=id,title,detail,created_at,read_at&recipient_user_id=eq.'+encodeURIComponent(a.user_id)+'&order=created_at.desc&limit=150');
+   if(!Array.isArray(rows))throw Error('通知資料格式不正確');
+   window.__miyakoCloudNotifications=rows;lastLoad=Date.now();
+   if(typeof updateBell==='function')updateBell();
+   if(typeof state!=='undefined'&&state.page==='notifications'&&typeof render==='function')render();
+  }catch(err){
+   const status=document.getElementById('cloud-notification-status');
+   if(status)status.textContent='目前尚未完成雲端通知設定；需要先在 Supabase 執行通知資料庫 SQL。';
+  }finally{busy=false}
+ }
+ document.addEventListener('click',async e=>{
+  const one=e.target.closest('[data-cloud-notification-read]');
+  const all=e.target.closest('[data-action="cloud-notifications-read-all"]');
+  if(!one&&!all)return;
+  e.preventDefault();e.stopImmediatePropagation();
+  try{
+   if(one)await request('PATCH','family_app_notifications?id=eq.'+encodeURIComponent(one.dataset.cloudNotificationRead),{read_at:new Date().toISOString()});
+   else await request('PATCH','family_app_notifications?read_at=is.null',{read_at:new Date().toISOString()});
+   lastLoad=0;await load(true);
+  }catch{alert('目前無法更新已讀狀態，請稍後重試')}
+ },true);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)void load(true)});
+ document.getElementById('notification-bell')?.addEventListener('click',()=>void load(true));
+ setInterval(()=>void load(),15000);
+ void load(true);
 })();
 </script></body></html>
