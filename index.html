@@ -702,7 +702,7 @@ function notifications(){
  const cloud=window.__miyakoCloudNotifications;
  if(Array.isArray(cloud)){
   const unread=cloud.filter(x=>!x.read_at).length;
-  return pageTitle('🔔 通知中心','家人共用更新 · 每位家人獨立計算未讀')+`<div class="card"><div class="row"><h3 style="margin:0">家人最新動態（未讀 ${unread}）</h3><button class="btn secondary" data-action="cloud-notifications-read-all" ${unread?'':'disabled'}>全部標為已讀</button></div>${cloud.length?cloud.map(n=>`<div class="notice-item ${n.read_at?'':'unread'}"><b>${escapeHtml(n.title||'家人更新')}</b><p>${escapeHtml(n.detail||'')}</p><time>${new Date(n.created_at).toLocaleString('zh-TW')}</time>${n.read_at?'':`<button class="mini-btn" data-cloud-notification-read="${n.id}">標為已讀</button>`}</div>`).join(''):'<div class="empty">目前沒有家人更新通知 🐢</div>'}</div>`;
+  return pageTitle('🔔 通知中心','家人共用更新 · 每位家人獨立計算未讀')+`<div class="card"><h3>🐢 桌面圖示通知數字</h3><p class="muted">若 iPhone 尚未顯示數字，可按下方按鈕檢查系統權限。不會訂閱推播或發送通知橫幅。</p><button class="btn secondary full" type="button" id="miyako-badge-permission">檢查／啟用桌面數字</button><p class="muted" id="miyako-badge-status" role="status"></p></div><div class="card"><div class="row"><h3 style="margin:0">家人最新動態（未讀 ${unread}）</h3><button class="btn secondary" data-action="cloud-notifications-read-all" ${unread?'':'disabled'}>全部標為已讀</button></div>${cloud.length?cloud.map(n=>`<div class="notice-item ${n.read_at?'':'unread'}"><b>${escapeHtml(n.title||'家人更新')}</b><p>${escapeHtml(n.detail||'')}</p><time>${new Date(n.created_at).toLocaleString('zh-TW')}</time>${n.read_at?'':`<button class="mini-btn" data-cloud-notification-read="${n.id}">標為已讀</button>`}</div>`).join(''):'<div class="empty">目前沒有家人更新通知 🐢</div>'}</div>`;
  }
  return pageTitle('🔔 通知中心','正在連線家人共用通知')+`<div class="card"><p class="muted" id="cloud-notification-status">正在讀取雲端通知…</p></div>`;
 }
@@ -2881,6 +2881,28 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
   }catch(e){ /* unsupported or denied: bell still works */ }
  }
  window.__miyakoSetBadgeCount=setCount;
+ document.addEventListener('click',async e=>{
+  if(!e.target.closest('#miyako-badge-permission'))return;
+  const status=document.getElementById('miyako-badge-status');
+  const say=t=>{if(status)status.textContent=t};
+  if(typeof navigator.setAppBadge!=='function'){say('這個開啟方式或 iOS 版本沒有提供桌面角標功能。請從已加入主畫面的 App 開啟。');return}
+  if(!('Notification' in window)){say('目前無法取得 iPhone 通知權限狀態；請確認 iOS 支援。');return}
+  try{
+   let permission=Notification.permission;
+   if(permission==='default'){
+    permission=await Notification.requestPermission();
+   }
+   if(permission!=='granted'){
+    say(permission==='denied'?'iPhone 尚未允許此 App 的通知權限，因此桌面角標可能無法顯示。請到 iPhone 設定確認。':'尚未取得 iPhone 通知權限，桌面數字可能無法顯示。');
+    return;
+   }
+   const cloud=window.__miyakoCloudNotifications;
+   const n=Array.isArray(cloud)?cloud.filter(x=>!x.read_at).length:0;
+   lastCount=-1;
+   await setCount(n);
+   say('已嘗試同步目前未讀 '+n+' 則至桌面圖示。若仍未出現，請確認 iPhone 的 App 通知「標記」設定；不需開啟橫幅或聲音。');
+  }catch(err){say('角標設定未成功：'+String(err?.message||err))}
+ });
 })();
 </script><script id="miyako-cloud-notifications-v3382">
 (()=>{
