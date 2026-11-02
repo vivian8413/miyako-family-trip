@@ -2460,23 +2460,55 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
   if(box===panel)return;panel=box;
   box.innerHTML=`<p class="muted" id="admin-email-message" role="status" aria-live="polite">請先確認這台裝置的管理員身分。</p>
   <div id="admin-email-bind" hidden><label for="admin-bind-email">綁定管理員電子郵件（只在原本 Safari 操作）</label><input id="admin-bind-email" type="email" autocomplete="email" placeholder="輸入你的電子郵件" style="width:100%;margin:8px 0"><button class="btn secondary full" type="button" id="admin-bind-send">寄送電子郵件驗證信</button></div>
+  <div id="admin-password-setup" hidden><label for="admin-new-password">原管理員：設定登入密碼（僅 Safari）</label><input id="admin-new-password" type="password" autocomplete="new-password" minlength="12" placeholder="至少 12 個字元" style="width:100%;margin:8px 0"><button class="btn secondary full" type="button" id="admin-password-set">為原管理員帳號設定密碼</button><p class="muted">只有已驗證電子郵件的原管理員可設定。若 Supabase 要求重新驗證，將停止，不影響現有登入。</p></div>
+  <div id="admin-password-login" hidden><label for="admin-password-email">原管理員信箱</label><input id="admin-password-email" type="email" autocomplete="username" placeholder="已綁定的電子郵件" style="width:100%;margin:8px 0"><label for="admin-password-input">密碼</label><input id="admin-password-input" type="password" autocomplete="current-password" placeholder="輸入原管理員密碼" style="width:100%;margin:8px 0"><button class="btn secondary full" type="button" id="admin-password-login-button">驗證原管理員並恢復此 App</button><p class="muted">只有管理員權限驗證成功後才會切換；已核准家人帳號不可被覆蓋。</p></div>
   <div id="admin-email-login" hidden><label for="admin-login-email">主畫面版：恢復原本管理員身分</label><input id="admin-login-email" type="email" autocomplete="email" placeholder="已綁定的電子郵件" style="width:100%;margin:8px 0"><button class="btn secondary full" type="button" id="admin-login-send">寄送 6 位數登入驗證碼</button><p class="muted">收到信後，直接輸入郵件內的 6 位數驗證碼，不需要點開任何登入連結。驗證碼僅能使用一次，請勿分享。</p><input id="admin-login-code" class="field" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="輸入 6 位數驗證碼" style="width:100%;margin:8px 0"><button class="btn secondary full" type="button" id="admin-login-verify">驗證 6 位數代碼並恢復管理員身分</button></div>`;
   void inspect();
  }
  async function inspect(){
-  const b=q('admin-email-bind'),l=q('admin-email-login');if(!b||!l)return;
+  const b=q('admin-email-bind'),l=q('admin-email-login'),ps=q('admin-password-setup'),pl=q('admin-password-login');if(!b||!l||!ps||!pl)return;
   const a=read();
-  if(!a?.user_id){b.hidden=true;l.hidden=false;message('這個瀏覽器尚未登入；僅能恢復先前已綁定電子郵件的管理員帳號。');return}
+  if(!a?.user_id){b.hidden=true;l.hidden=false;ps.hidden=true;pl.hidden=false;message('這個瀏覽器尚未登入；僅能恢復先前已綁定電子郵件的管理員帳號。');return}
   try{
    const x=await original();verifiedAdmin=true;verifiedId=x.u.id;verifiedEmail=x.u.email||'';
-   b.hidden=false;l.hidden=true;
+   b.hidden=false;l.hidden=true;ps.hidden=!Boolean(x.u.email_confirmed_at);pl.hidden=true;
    if(verifiedEmail){q('admin-bind-email').value=verifiedEmail;message('✓ 已確認管理員身分。已綁定信箱：'+verifiedEmail+'。請先確認郵件驗證已完成。')}
    else message('✓ 已確認原本管理員身分（ID 末四碼 '+verifiedId.slice(-4)+'）。可以綁定電子郵件。');
-  }catch(e){verifiedAdmin=false;b.hidden=true;l.hidden=false;message('這台 App 尚未取得管理員權限。若已在 Safari 綁定信箱，可在此驗證並切換回原管理員帳號。現有匿名身分會先保留至驗證成功。')}
+  }catch(e){verifiedAdmin=false;b.hidden=true;l.hidden=false;ps.hidden=true;pl.hidden=false;message('這台 App 尚未取得管理員權限。若已在 Safari 綁定信箱，可在此驗證並切換回原管理員帳號。現有匿名身分會先保留至驗證成功。')}
  }
  async function action(id){
   if(working)return;working=true;
   try{
+   if(id==='admin-password-set'){
+    const x=await original();
+    if(!x.u.email||!x.u.email_confirmed_at)throw Error('原帳號信箱尚未驗證，不能設定密碼。');
+    const password=q('admin-new-password').value;
+    if(password.length<12)throw Error('密碼至少 12 個字元。');
+    if(!confirm('確定要替 Safari 目前已驗證的原管理員帳號設定登入密碼？'))return;
+    const result=await req('user',{method:'PUT',headers:{Authorization:'Bearer '+x.a.access_token},body:JSON.stringify({password})});
+    if(result.id!==x.u.id)throw Error('伺服器回傳身分不一致，請停止。');
+    q('admin-new-password').value='';
+    message('✓ 原管理員密碼已設定。請保持 Safari 登入，接著到主畫面 App 使用同一信箱登入。');
+   }
+   if(id==='admin-password-login-button'){
+    const email=q('admin-password-email').value.trim(),password=q('admin-password-input').value;
+    if(!/^\\S+@\\S+\\.\\S+$/.test(email)||!password)throw Error('請輸入原管理員信箱和密碼。');
+    const existing=read();
+    if(existing?.user_id&&existing?.access_token){
+      const check=await fetch(BASE+'/rest/v1/family_members?select=id&auth_user_id=eq.'+encodeURIComponent(existing.user_id)+'&limit=1',{headers:headers(existing.access_token),cache:'no-store'});
+      if(!check.ok)throw Error('無法確認目前家人身分，為保護資料已停止切換。');
+      if((await check.json()).length)throw Error('目前已是正式家人帳號，禁止覆蓋。');
+    }
+    const d=await req('token?grant_type=password',{method:'POST',body:JSON.stringify({email,password})});
+    q('admin-password-input').value='';
+    if(!d?.user?.id||!d?.access_token||!d?.refresh_token)throw Error('登入資料不完整，未切換。');
+    if((d.user.email||'').toLowerCase()!==email.toLowerCase())throw Error('登入信箱不一致，未切換。');
+    const role=await fetch(BASE+'/rest/v1/rpc/is_family_admin',{method:'POST',headers:headers(d.access_token),body:'{}',cache:'no-store'});
+    if(!role.ok||(await role.json())!==true)throw Error('此帳號不是原管理員，未切換。');
+    if(!confirm('已驗證為管理員。確定將此主畫面 App 切換為原管理員帳號？Safari 與雲端資料不會刪除。'))return;
+    save(d,undefined,true);
+    message('✓ 已驗證並恢復管理員登入，請重新開啟 App。');
+   }
    if(id==='admin-bind-send'){
     const x=await original();const email=q('admin-bind-email').value.trim();
     if(!/^\S+@\S+\.\S+$/.test(email))throw Error('請輸入有效電子郵件。');
@@ -2511,7 +2543,7 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
    }
   }catch(e){message('⚠️ '+e.message)}finally{working=false}
  }
- document.addEventListener('click',e=>{const id=e.target.closest('#admin-bind-send,#admin-login-send,#admin-login-verify')?.id;if(id)void action(id)});
+ document.addEventListener('click',e=>{const id=e.target.closest('#admin-bind-send,#admin-login-send,#admin-login-verify,#admin-password-set,#admin-password-login-button')?.id;if(id)void action(id)});
  const main=q('main');if(main)new MutationObserver(()=>{if(q('admin-email-panel')!==panel)render()}).observe(main,{childList:true});
  render();
 })();
