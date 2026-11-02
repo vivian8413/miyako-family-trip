@@ -2690,17 +2690,11 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
    const rows=await res.json();if(!Array.isArray(rows))throw Error('家人資料格式錯誤');
    if(n!==serial||!form.isConnected)return;
    const changeCard=document.getElementById('approved-nickname-change');
-   let isApproved=false;
-   if(rows.length){
-    const approval=await fetch(BASE+'/rest/v1/family_join_requests?select=id&auth_user_id=eq.'+encodeURIComponent(user.id)+'&status=eq.approved&limit=1',{headers:h,cache:'no-store'});
-    if(!approval.ok)throw Error('無法確認核准狀態');
-    const approvals=await approval.json();
-    isApproved=Array.isArray(approvals)&&approvals.length>0;
-   }
+   // The existing approved family_members record is the reliable signal for
+   // roster ordering; avoid a second join-request query that may be RLS-limited.
+   const isApproved=rows.length>0;
    if(n!==serial||!form.isConnected)return;
    if(changeCard)changeCard.hidden=!isApproved;
-   // Approved members see their existing family roster immediately below the page title.
-   // New applicants retain the original onboarding sequence and roster position.
    const rosterCard=document.getElementById('approved-family-roster-card');
    const firstCard=form.closest('.card');
    if(isApproved&&rosterCard&&firstCard&&firstCard.parentElement===rosterCard.parentElement){
