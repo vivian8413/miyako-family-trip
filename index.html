@@ -2583,7 +2583,8 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
  const main=q('main');if(main)new MutationObserver(()=>{if(q('admin-email-panel')!==panel)render()}).observe(main,{childList:true});
  render();
 })();
-</script><script id="admin-only-profile-visibility-v3365">
+</script><style id="admin-only-visibility-guard">[data-admin-only][hidden]{display:none!important}</style>
+<script id="admin-only-profile-visibility-v3365">
 (()=>{
  const BASE='https://pmbnvkopdscvscaxukpk.supabase.co';
  const KEY='sb_publishable_n-I_zcqVJd9sGQuvQFWHgQ_DTwtsSrM';
