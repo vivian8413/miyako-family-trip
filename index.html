@@ -811,7 +811,7 @@ function settlementSuggestions(){
  }
  return transfers.length?transfers.map(t=>`<div class="row" style="padding:10px 0;border-bottom:1px solid #e9efea"><b>${escapeHtml(t)}</b></div>`).join(''):'<div class="empty">目前沒有需要結算的款項 🌱</div>';
 }
-function wall(){return pageTitle('🌺 家庭回憶拼貼牆','我們的宮古島旅行手帳 ♡')+`<div class="wall-paper"><div class="wall-stamp">✈️ MIYAKOJIMA<br>11.18 — 11.21</div><div class="wall-title">📸 今天又拍了什麼啦！</div><p class="wall-sub">九個人的海島日常 × 吃・玩・拍・廢 ♡</p><div id="wall-collage" class="wall-collage"><p class="wall-empty">🌴 貼上第一張回憶吧！</p></div><div class="wall-actions"><button type="button" id="wall-refresh">🔄 更新照片牆</button><button type="button" id="wall-random">🎁 回憶盲盒</button><button type="button" id="wall-toggle-form">✏️ 貼張照片</button></div><form id="wall-form" class="wall-form hidden"><p>📸 上傳一張喜歡的照片，再寫一句搞笑小標！</p><input type="file" id="wall-file" accept="image/*" required><input id="wall-caption" maxlength="42" placeholder="例如：誰說今天不會曬黑？" required><button type="submit" class="btn full">貼上回憶 ✨</button></form><div id="wall-upload-progress" class="wall-upload-progress hidden" role="status" aria-live="polite"><span id="wall-upload-step">準備照片中…</span><div class="wall-progress-track"><div id="wall-progress-fill" class="wall-progress-fill"></div></div></div><p id="wall-status" class="wall-status" role="status">正在連線九人共用照片牆…</p></div><div id="wall-lightbox" class="hidden wall-lightbox" role="dialog" aria-label="照片預覽"><div class="wall-lightbox-inner"><button id="wall-close" class="btn secondary">✕ 關閉</button><img id="wall-large" alt="回憶照片"><p id="wall-large-caption"></p><button type="button" id="wall-save-photo" class="btn full">📥 儲存／分享照片</button><p id="wall-save-status" class="muted" role="status" aria-live="polite" style="font-size:12px">這裡提供上傳到拼貼牆的照片版本；儲存至 iPhone 相簿需透過系統分享選單確認。</p></div></div>`}
+function wall(){return pageTitle('🌺 家庭回憶拼貼牆','我們的宮古島旅行手帳 ♡')+`<div class="wall-paper"><div class="wall-stamp">✈️ MIYAKOJIMA<br>11.18 — 11.21</div><div class="wall-title">📸 今天又拍了什麼啦！</div><p class="wall-sub">九個人的海島日常 × 吃・玩・拍・廢 ♡</p><div id="wall-collage" class="wall-collage"><p class="wall-empty">🌴 貼上第一張回憶吧！</p></div><div class="wall-actions"><button type="button" id="wall-refresh">🔄 更新照片牆</button><button type="button" id="wall-random">🎁 回憶盲盒</button><button type="button" id="wall-select-toggle">☑️ 選取照片</button><button type="button" id="wall-toggle-form">✏️ 貼張照片</button></div><div id="wall-batch-tools" class="hidden" style="background:#fffaf1;border:1px solid #e5d6c6;border-radius:12px;padding:12px;margin:12px 0"><p id="wall-batch-status" class="muted" role="status">點選照片即可多選，最多 20 張。</p><button type="button" class="btn secondary" id="wall-select-all">全選／取消全選</button> <button type="button" class="btn" id="wall-batch-share" disabled>📱 儲存選取照片</button></div><form id="wall-form" class="wall-form hidden"><p>📸 上傳一張喜歡的照片，再寫一句搞笑小標！</p><input type="file" id="wall-file" accept="image/*" required><input id="wall-caption" maxlength="42" placeholder="例如：誰說今天不會曬黑？" required><button type="submit" class="btn full">貼上回憶 ✨</button></form><div id="wall-upload-progress" class="wall-upload-progress hidden" role="status" aria-live="polite"><span id="wall-upload-step">準備照片中…</span><div class="wall-progress-track"><div id="wall-progress-fill" class="wall-progress-fill"></div></div></div><p id="wall-status" class="wall-status" role="status">正在連線九人共用照片牆…</p></div><div id="wall-lightbox" class="hidden wall-lightbox" role="dialog" aria-label="照片預覽"><div class="wall-lightbox-inner"><button id="wall-close" class="btn secondary">✕ 關閉</button><img id="wall-large" alt="回憶照片"><p id="wall-large-caption"></p><button type="button" id="wall-save-photo" class="btn full">📥 儲存／分享照片</button><p id="wall-save-status" class="muted" role="status" aria-live="polite" style="font-size:12px">這裡提供上傳到拼貼牆的照片版本；儲存至 iPhone 相簿需透過系統分享選單確認。</p></div></div>`}
 function album(){
  const categories=[['📸','家庭合照'],['🍤','美食回憶'],['🏝️','景點風景'],['🐢','旅遊日常']];
  const selected=Number.isInteger(state.albumCategory)&&state.albumCategory>=0&&state.albumCategory<4?state.albumCategory:null;
@@ -2051,6 +2051,7 @@ more=function(){return originalMore()+(window.__miyakoAlbumAdmin?'<div class="ca
 (()=>{
 const BASE='https://pmbnvkopdscvscaxukpk.supabase.co',KEY='sb_publishable_n-I_zcqVJd9sGQuvQFWHgQ_DTwtsSrM',STORE='miyako_auth_v18',BUCKET='family-memory-wall';
 let photos=[],likes=[],uid='',token='',loaded=false,busy=false,lastLoad=0,wallNode=null,loadSeq=0,selectedWallPhoto=null,wallSaving=false,wallReadyFile=null,wallReadyBlob=null,wallPrepareSeq=0,wallForceDownload=false;
+let wallSelecting=false,wallSelected=new Set(),wallBatchFiles=null,wallBatchSeq=0;
 const el=id=>document.getElementById(id);
 const status=t=>{if(el('wall-status'))el('wall-status').textContent=t};
 function uploadStep(message,percent){const box=el('wall-upload-progress'),label=el('wall-upload-step'),bar=el('wall-progress-fill');if(!box)return;box.classList.remove('hidden');if(label)label.textContent=message;if(bar)bar.style.width=percent+'%'}
@@ -2178,6 +2179,37 @@ function saveWallPhoto(){
   }else fallback();
  }catch(e){if(message)message.textContent='無法開啟系統分享：'+e.message;finish()}
 }
+function wallBatchStatus(t){const e=el('wall-batch-status');if(e)e.textContent=t}
+function wallBatchUi(){
+ const tools=el('wall-batch-tools'),toggle=el('wall-select-toggle'),button=el('wall-batch-share');
+ if(tools)tools.classList.toggle('hidden',!wallSelecting);
+ if(toggle){toggle.textContent=wallSelecting?'✕ 結束選取':'☑️ 選取照片';toggle.setAttribute('aria-pressed',String(wallSelecting))}
+ if(button){button.disabled=!wallBatchFiles?.length;button.textContent=wallBatchFiles?.length?'📱 儲存 '+wallBatchFiles.length+' 張照片':'📱 儲存選取照片'}
+}
+async function wallPrepareBatch(){
+ const seq=++wallBatchSeq,ids=[...wallSelected];wallBatchFiles=null;wallBatchUi();
+ if(!ids.length){wallBatchStatus('點選照片即可多選，最多 20 張。');return}
+ if(ids.length>20){wallBatchStatus('一次最多選取 20 張，請分批儲存。');return}
+ wallBatchStatus('正在準備 '+ids.length+' 張照片，請稍候…');
+ try{
+  await auth();const files=[];let total=0;
+  for(const id of ids){
+   const p=photos.find(x=>x.id===id);if(!p)throw Error('有照片已不存在，請重新選取');
+   let url=p.src;if(!url)url=await signed(p.storage_path);
+   let response=await fetch(url,{cache:'no-store'});
+   if(!response.ok){url=await signed(p.storage_path);response=await fetch(url,{cache:'no-store'})}
+   if(!response.ok)throw Error('無法讀取其中一張照片');
+   const blob=await response.blob();total+=blob.size;
+   if(!blob.size||total>120*1024*1024)throw Error('照片總量超過 120 MB，請減少選取數量');
+   files.push(new File([blob],'miyako-'+p.id.slice(0,8)+'.jpg',{type:'image/jpeg'}));
+   if(seq!==wallBatchSeq)return;
+  }
+  if(seq!==wallBatchSeq)return;
+  if(!navigator.share||navigator.canShare&&!navigator.canShare({files})){wallBatchStatus('這台手機不支援多張照片分享，請使用單張儲存。');return}
+  wallBatchFiles=files;wallBatchUi();wallBatchStatus('✓ '+files.length+' 張已準備好。按「儲存選取照片」開啟 iPhone 分享選單，再選擇儲存影像。不是 ZIP。');
+ }catch(err){if(seq===wallBatchSeq)wallBatchStatus('準備失敗：'+err.message)}
+}
+function wallToggleSelection(){wallSelecting=!wallSelecting;wallSelected.clear();wallBatchFiles=null;++wallBatchSeq;wallBatchUi();draw()}
 function draw(){const target=el('wall-collage');if(!target)return;target.replaceChildren();if(!photos.length){const p=document.createElement('p');p.className='wall-empty';p.textContent=loaded?'🌴 還沒有照片，貼上第一張回憶吧！':'正在準備照片牆…';target.append(p);return}
  photos.forEach((p,i)=>{const frame=document.createElement('div');frame.className='wall-shot';frame.style.cssText=`--r:${[-9,8,-5,11,-7,6][i%6]}deg;--offset:${[0,16,-12,8,-6,14][i%6]}px;`;
  const tape=document.createElement('span');tape.className='wall-tape';const img=document.createElement('img');img.alt=p.caption;img.loading='lazy';img.decoding='async';img.classList.add('wall-photo-loading');
@@ -2189,10 +2221,14 @@ function draw(){const target=el('wall-collage');if(!target)return;target.replace
  const meta=document.createElement('div');meta.className='wall-meta';meta.textContent=p.nickname+' · '+new Date(p.created_at).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'});
  const heart=document.createElement('button');heart.type='button';heart.className='wall-heart';const count=likes.filter(l=>l.photo_id===p.id).length;const mine=likes.some(l=>l.photo_id===p.id&&l.auth_user_id===uid);heart.textContent=(mine?'❤️ ':'♡ ')+count;heart.title='喜歡這張照片';heart.addEventListener('click',async e=>{e.stopPropagation();if(busy)return;busy=true;heart.disabled=true;try{await auth();if(mine){await req('/rest/v1/family_wall_likes?photo_id=eq.'+encodeURIComponent(p.id)+'&auth_user_id=eq.'+encodeURIComponent(uid),{method:'DELETE'});likes=likes.filter(l=>!(l.photo_id===p.id&&l.auth_user_id===uid))}else{await req('/rest/v1/family_wall_likes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo_id:p.id,auth_user_id:uid})});likes.push({photo_id:p.id,auth_user_id:uid})}draw()}catch(err){status('愛心操作失敗：'+err.message)}finally{busy=false}});
  frame.append(img,photoFallback,tape,cap,meta,heart);if(p.auth_user_id===uid||window.__miyakoAlbumAdmin){const del=document.createElement('button');del.type='button';del.className='wall-delete';del.textContent='🗑';del.title='刪除照片';del.addEventListener('click',async e=>{e.stopPropagation();if(busy||!confirm('確定永久刪除這張照片？照片與愛心紀錄將無法復原。'))return;busy=true;try{await auth();await req('/rest/v1/family_wall_photos?id=eq.'+encodeURIComponent(p.id),{method:'DELETE'});await req('/storage/v1/object/'+BUCKET+'/'+p.storage_path,{method:'DELETE'});photos=photos.filter(x=>x.id!==p.id);likes=likes.filter(x=>x.photo_id!==p.id);draw();status('✓ 已刪除照片')}catch(err){status('刪除未完全成功：'+err.message+'，請重新整理檢查')}finally{busy=false}});frame.append(del)}
- frame.addEventListener('click',()=>{if(p.src)show(p)});target.append(frame)});
+ if(wallSelecting){const selected=wallSelected.has(p.id);frame.style.outline=selected?'4px solid #397f64':'3px dashed #9bbaa8';frame.style.outlineOffset='3px';const mark=document.createElement('span');mark.textContent=selected?'☑️':'□';mark.style.cssText='position:absolute;top:8px;left:8px;z-index:10;background:#fff;border-radius:50%;padding:4px 8px;font-size:20px;color:#276b50';frame.append(mark)}
+ frame.addEventListener('click',()=>{if(wallSelecting){if(wallSelected.has(p.id))wallSelected.delete(p.id);else if(wallSelected.size>=20){wallBatchStatus('每次最多選 20 張');return}else wallSelected.add(p.id);wallBatchFiles=null;++wallBatchSeq;draw();void wallPrepareBatch();return}if(p.src)show(p)});target.append(frame)});
 }
 function compress(file){return new Promise((resolve,reject)=>{const image=new Image(),url=URL.createObjectURL(file);image.onload=()=>{try{const ratio=Math.min(1,1100/Math.max(image.width,image.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*ratio));canvas.height=Math.max(1,Math.round(image.height*ratio));canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);canvas.toBlob(blob=>blob?resolve(blob):reject(Error('照片壓縮失敗')),'image/jpeg',.65)}catch(e){reject(e)}finally{URL.revokeObjectURL(url)}};image.onerror=()=>{URL.revokeObjectURL(url);reject(Error('無法讀取照片'))};image.src=url})}
 document.addEventListener('click',e=>{
+ if(e.target.closest('#wall-select-toggle')){wallToggleSelection();return}
+ if(e.target.closest('#wall-select-all')){const all=photos.slice(0,20).map(p=>p.id);wallSelected=new Set(wallSelected.size===Math.min(photos.length,20)?[]:all);wallBatchFiles=null;++wallBatchSeq;draw();void wallPrepareBatch();return}
+ if(e.target.closest('#wall-batch-share')){const files=wallBatchFiles;if(!files?.length)return;try{navigator.share({files,title:'宮古島家庭照片'}).then(()=>wallBatchStatus('✓ 已交給系統分享；請確認是否選擇「儲存影像」。')).catch(e=>wallBatchStatus(e.name==='AbortError'?'已取消分享，沒有標記為已儲存。':'分享失敗：'+e.message))}catch(e){wallBatchStatus('分享失敗：'+e.message)}return}
  if(e.target.closest('#wall-save-photo')){saveWallPhoto();return}
  if(e.target.closest('#wall-refresh')){if(!busy){lastLoad=Date.now();load()}else status('照片牆正在更新，請稍候…')}
  if(e.target.closest('#wall-toggle-form'))el('wall-form')?.classList.toggle('hidden');
