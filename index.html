@@ -2584,6 +2584,53 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
  render();
 })();
 </script><style id="admin-only-visibility-guard">[data-admin-only][hidden]{display:none!important}</style>
+<script id="approved-nickname-edit-guard-v3369">
+/* UI-only interim guard. Real authorization must be enforced in Supabase RPC. */
+(()=>{
+ const BASE='https://pmbnvkopdscvscaxukpk.supabase.co';
+ const KEY='sb_publishable_n-I_zcqVJd9sGQuvQFWHgQ_DTwtsSrM';
+ let current=null,serial=0;
+ async function check(form){
+  const n=++serial;
+  const input=form.querySelector('[name="nickname"]'),button=form.querySelector('button[type="submit"]');
+  if(!input||!button)return;
+  input.disabled=true;button.disabled=true;
+  let note=form.querySelector('[data-nickname-guard]');
+  if(!note){note=document.createElement('p');note.className='muted';note.dataset.nicknameGuard='';form.append(note)}
+  note.textContent='正在確認家人暱稱設定權限…';
+  let a;try{a=JSON.parse(localStorage.getItem('miyako_auth_v18')||'null')}catch{}
+  if(!a?.access_token||!a?.user_id){if(n!==serial||!form.isConnected)return;input.disabled=false;button.disabled=false;note.textContent='新家人可先設定暱稱，正式加入後修改需管理員授權。';return}
+  try{
+   const h={apikey:KEY,Authorization:'Bearer '+a.access_token};
+   const u=await fetch(BASE+'/auth/v1/user',{headers:h,cache:'no-store'});
+   if(!u.ok)throw Error('登入驗證未完成');
+   const user=await u.json();if(user.id!==a.user_id)throw Error('登入身分不一致');
+   const res=await fetch(BASE+'/rest/v1/family_members?select=nickname&auth_user_id=eq.'+encodeURIComponent(user.id)+'&limit=1',{headers:h,cache:'no-store'});
+   if(!res.ok)throw Error('家人身分查詢失敗');
+   const rows=await res.json();if(!Array.isArray(rows))throw Error('家人資料格式錯誤');
+   if(n!==serial||!form.isConnected)return;
+   if(rows.length){
+    input.value=String(rows[0].nickname||'');
+    input.disabled=true;button.disabled=true;button.hidden=true;
+    note.textContent='✓ 已核准家人的正式暱稱由管理員慈👻管理。安全碼授權功能尚未啟用，暫時禁止在此直接修改。';
+   }else{
+    input.disabled=false;button.disabled=false;button.hidden=false;
+    note.textContent='新家人可設定加入時使用的暱稱；核准後修改需管理員授權。';
+   }
+  }catch{
+   if(n!==serial||!form.isConnected)return;
+   input.disabled=true;button.disabled=true;
+   note.textContent='目前無法確認身分，暫不允許修改暱稱；不會更動既有紀錄。';
+  }
+ }
+ const observer=new MutationObserver(()=>{
+  const form=document.getElementById('member-form');
+  if(form&&form!==current){current=form;void check(form)}
+ });
+ observer.observe(document.body,{childList:true,subtree:true});
+ const form=document.getElementById('member-form');if(form){current=form;void check(form)}
+})();
+</script>
 <script id="admin-only-profile-visibility-v3365">
 (()=>{
  const BASE='https://pmbnvkopdscvscaxukpk.supabase.co';
