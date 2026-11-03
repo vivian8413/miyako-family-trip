@@ -1199,10 +1199,10 @@ document.addEventListener('click',async event=>{
  window.setInterval(()=>autoLoad(),15000);
  if(el('cloud-memo-list'))autoLoad(true);
  document.addEventListener('click',e=>{
-  const del=e.target.closest('[data-cloud-memo-delete]');if(del){const id=del.dataset.cloudMemoDelete;if(!confirm('確定要刪除這筆家人共用備忘？所有裝置都會看不到。'))return;run(async()=>{status('正在刪除備忘…');await request('DELETE','trip_memos?id=eq.'+encodeURIComponent(id));await load()});}
+  const del=e.target.closest('[data-cloud-memo-delete]');if(del){const id=del.dataset.cloudMemoDelete;if(!confirm('確定要刪除這筆家人共用備忘？所有裝置都會看不到。'))return;run(async()=>{status('正在刪除備忘…');await request('DELETE','trip_memos?id=eq.'+encodeURIComponent(id));document.dispatchEvent(new Event('miyako-memo-changed'));await load()});}
  });
  document.addEventListener('change',e=>{const x=e.target.closest('[data-cloud-memo-check]');if(!x)return;const id=x.dataset.cloudMemoCheck,checked=x.checked;run(async()=>{status('正在更新備忘…');await request('PATCH','trip_memos?id=eq.'+encodeURIComponent(id),{is_completed:checked});await load()});});
- document.addEventListener('submit',e=>{if(e.target.id!=='cloud-memo-form')return;e.preventDefault();const form=e.target;const input=form.querySelector('[name="cloudmemo"]');const content=String(input?.value||'').trim();if(!content)return;run(async()=>{status('正在新增備忘…');await request('POST','trip_memos',{content,is_completed:false});if(input)input.value='';await load()});});
+ document.addEventListener('submit',e=>{if(e.target.id!=='cloud-memo-form')return;e.preventDefault();const form=e.target;const input=form.querySelector('[name="cloudmemo"]');const content=String(input?.value||'').trim();if(!content)return;run(async()=>{status('正在新增備忘…');await request('POST','trip_memos',{content,is_completed:false});document.dispatchEvent(new Event('miyako-memo-changed'));if(input)input.value='';await load()});});
 })();
 </script><style id="pwa-install-invite-style">
 .pwa-invite-backdrop{position:fixed;inset:0;background:rgba(28,49,44,.48);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box}
@@ -2929,7 +2929,7 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
  async function load(force=false){
   if(busy||document.hidden)return;
   const a=credentials();if(!a)return;
-  if(!force&&Date.now()-lastLoad<12000)return;
+  if(!force&&Date.now()-lastLoad<3000)return;
   busy=true;
   try{
    if(lastUser&&lastUser!==a.user_id)window.__miyakoCloudNotifications=null;
@@ -2981,7 +2981,10 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
    })();
   }
  });
- setInterval(()=>void load(),5000);
+ window.addEventListener('focus',()=>void load(true));
+ window.addEventListener('online',()=>void load(true));
+ document.addEventListener('miyako-memo-changed',()=>void load(true));
+ setInterval(()=>void load(),3000);
  void load(true);
 })();
 </script></body></html>
