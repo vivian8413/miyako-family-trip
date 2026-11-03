@@ -702,7 +702,7 @@ function notifications(){
  const cloud=window.__miyakoCloudNotifications;
  if(Array.isArray(cloud)){
   const unread=cloud.filter(x=>!x.read_at).length;
-  return pageTitle('🔔 通知中心','家人共用更新 · 每位家人獨立計算未讀')+`<div class="card"><h3>🐢 桌面圖示通知數字</h3><p class="muted">若 iPhone 尚未顯示數字，可按下方按鈕檢查系統權限。不會訂閱推播或發送通知橫幅。</p>${(typeof Notification!=="undefined"&&Notification.permission==="granted")?`<p class="muted">✓ 已允許桌面通知數字（有未讀才顯示）。</p>`:`<button class="btn secondary full" type="button" id="miyako-badge-permission">啟用桌面通知數字</button>`}<p class="muted" id="miyako-badge-status" role="status"></p></div><div class="card"><div class="row"><h3 style="margin:0">家人最新動態（未讀 ${unread}）</h3><button class="btn secondary" data-action="cloud-notifications-read-all" ${unread?'':'disabled'}>全部標為已讀</button></div>${cloud.length?cloud.map(n=>`<div class="notice-item ${n.read_at?'':'unread'}"><b>${escapeHtml(n.title||'家人更新')}</b><p>${escapeHtml(n.detail||'')}</p><time>${new Date(n.created_at).toLocaleString('zh-TW')}</time>${n.read_at?'':`<button class="mini-btn" data-cloud-notification-read="${n.id}">標為已讀</button>`}</div>`).join(''):'<div class="empty">目前沒有家人更新通知 🐢</div>'}</div>`;
+  return pageTitle('🔔 通知中心','家人共用更新 · 每位家人獨立計算未讀')+`<div class="card"><h3>🐢 桌面圖示通知數字</h3><p class="muted">背景推播測試：僅在你按下按鈕後才訂閱。iPhone 可能顯示系統通知。</p><button type="button" class="btn secondary" id="miyako-push-subscribe">啟用背景推播測試</button><p class="muted" id="miyako-push-subscribe-status">尚未訂閱背景推播</p><p class="muted">若 iPhone 尚未顯示數字，可按下方按鈕檢查系統權限。不會訂閱推播或發送通知橫幅。</p>${(typeof Notification!=="undefined"&&Notification.permission==="granted")?`<p class="muted">✓ 已允許桌面通知數字（有未讀才顯示）。</p>`:`<button class="btn secondary full" type="button" id="miyako-badge-permission">啟用桌面通知數字</button>`}<p class="muted" id="miyako-badge-status" role="status"></p></div><div class="card"><div class="row"><h3 style="margin:0">家人最新動態（未讀 ${unread}）</h3><button class="btn secondary" data-action="cloud-notifications-read-all" ${unread?'':'disabled'}>全部標為已讀</button></div>${cloud.length?cloud.map(n=>`<div class="notice-item ${n.read_at?'':'unread'}"><b>${escapeHtml(n.title||'家人更新')}</b><p>${escapeHtml(n.detail||'')}</p><time>${new Date(n.created_at).toLocaleString('zh-TW')}</time>${n.read_at?'':`<button class="mini-btn" data-cloud-notification-read="${n.id}">標為已讀</button>`}</div>`).join(''):'<div class="empty">目前沒有家人更新通知 🐢</div>'}</div>`;
  }
  return pageTitle('🔔 通知中心','正在連線家人共用通知')+`<div class="card"><p class="muted" id="cloud-notification-status">正在讀取雲端通知…</p></div>`;
 }
@@ -3013,5 +3013,41 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
  document.addEventListener('miyako-memo-changed',()=>void load(true));
  setInterval(()=>void load(),3000);
  void load(true);
+})();
+</script><script id="miyako-push-subscription-v1">
+/* Explicit opt-in only. Public VAPID key; no private keys in this client. */
+(()=>{
+ const BASE='https://pmbnvkopdscvscaxukpk.supabase.co';
+ const KEY='sb_publishable_n-I_zcqVJd9sGQuvQFWHgQ_DTwtsSrM';
+ const VAPID='BBuvM1_QBAKEHGGS6f6jLOlucnc6jwqnTvjt1zAxRe1TG8NAmcMHnXq4kDFj_63FW6ATYeHD-6_1ej4gX2fBvoo';
+ const status=t=>{const el=document.getElementById('miyako-push-subscribe-status');if(el)el.textContent=t};
+ function decode(v){const p=(v+'='.repeat((4-v.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(p),c=>c.charCodeAt(0))}
+ let busy=false;
+ document.addEventListener('click',async e=>{
+  if(!e.target.closest('#miyako-push-subscribe')||busy)return;
+  busy=true;
+  try{
+   if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))throw Error('目前開啟方式不支援背景推播；請從 iPhone 主畫面的 App 開啟');
+   if(!window.matchMedia('(display-mode: standalone)').matches)throw Error('請從 iPhone 主畫面已安裝的宮古島 App 開啟');
+   const a=JSON.parse(localStorage.getItem('miyako_auth_v18')||'null');
+   if(!a?.user_id||!a?.access_token)throw Error('找不到原本家人登入資料；請先檢查家人身分，不要建立新身分');
+   status('正在確認 iPhone 通知權限…');
+   const permission=Notification.permission==='default'?await Notification.requestPermission():Notification.permission;
+   if(permission!=='granted')throw Error('尚未允許通知；可至 iPhone 設定調整');
+   const reg=await navigator.serviceWorker.ready;
+   let sub=await reg.pushManager.getSubscription();
+   if(sub){
+    const existing=Array.from(new Uint8Array(sub.options?.applicationServerKey||[]));
+    const wanted=Array.from(decode(VAPID));
+    if(existing.length&&existing.some((v,i)=>v!==wanted[i]))throw Error('裝置上已有不同金鑰的推播訂閱，為保留既有設定，未自動取代');
+   }else sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decode(VAPID)});
+   const json=sub.toJSON();
+   if(!json.endpoint||!json.keys?.p256dh||!json.keys?.auth)throw Error('iPhone 未回傳完整推播訂閱資料');
+   const res=await fetch(BASE+'/rest/v1/family_push_subscriptions?on_conflict=endpoint',{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+a.access_token,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({auth_user_id:a.user_id,endpoint:json.endpoint,p256dh:json.keys.p256dh,auth_secret:json.keys.auth,updated_at:new Date().toISOString()}),cache:'no-store'});
+   if(!res.ok)throw Error('儲存推播訂閱失敗（HTTP '+res.status+'）；後端發送尚未啟用');
+   status('✓ 已儲存這支 iPhone 的推播訂閱；等待後端發送功能完成後測試');
+  }catch(err){status('⚠️ '+String(err?.message||err))}
+  finally{busy=false}
+ });
 })();
 </script></body></html>
