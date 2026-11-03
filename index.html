@@ -2975,9 +2975,17 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
    lastUser=a.user_id;
    const rows=await request('GET','family_app_notifications?select=id,title,detail,created_at,read_at&recipient_user_id=eq.'+encodeURIComponent(a.user_id)+'&order=created_at.desc&limit=150');
    if(!Array.isArray(rows))throw Error('通知資料格式不正確');
+   const previous=window.__miyakoCloudNotifications;
+   // Do not rebuild the notification page or bell when polling returns identical data.
+   const changed=!Array.isArray(previous)||previous.length!==rows.length||rows.some((item,i)=>{
+     const prior=previous[i];
+     return !prior||item.id!==prior.id||item.read_at!==prior.read_at||item.title!==prior.title||item.detail!==prior.detail||item.created_at!==prior.created_at;
+   });
    window.__miyakoCloudNotifications=rows;lastLoad=Date.now();
-   if(typeof updateBell==='function')updateBell();
-   if(typeof state!=='undefined'&&state.page==='notifications'&&typeof render==='function')render();
+   if(changed){
+     if(typeof updateBell==='function')updateBell();
+     if(typeof state!=='undefined'&&state.page==='notifications'&&typeof render==='function')render();
+   }
   }catch(err){
    const status=document.getElementById('cloud-notification-status');
    if(status)status.textContent='無法同步通知：'+String(err?.message||err)+'。請確認家人登入狀態或稍後重試。';
