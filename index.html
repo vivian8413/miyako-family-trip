@@ -1149,14 +1149,14 @@ document.addEventListener('click',async event=>{
  const BASE='https://pmbnvkopdscvscaxukpk.supabase.co';
  const KEY='sb_publishable_n-I_zcqVJd9sGQuvQFWHgQ_DTwtsSrM';
  const STORE='miyako_auth_v18';
- let cloudRows=[],loaded=false,busy=false,lastLoad=0;
+ let cloudRows=[],loaded=false,busy=false,lastLoad=0,memoRole='',memoUserId='';
  const el=id=>document.getElementById(id);
  const status=message=>{const x=el('cloud-memo-status');if(x)x.textContent=message};
  const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  function display(){
   const list=el('cloud-memo-list');if(!list)return;
   if(!loaded){return}
-  list.innerHTML=cloudRows.length?cloudRows.map(m=>`<div class="row" style="border-bottom:1px solid #eef2ec;padding:8px 0"><label class="check ${m.is_completed?'done':''}" style="flex:1;border:0"><input type="checkbox" data-cloud-memo-check="${safe(m.id)}" ${m.is_completed?'checked':''}><span>${safe(m.content)}</span></label><button type="button" class="btn danger" data-cloud-memo-delete="${safe(m.id)}">刪除</button></div>`).join(''):'<p class="muted">雲端還沒有備忘，可以新增一筆測試。</p>';
+  list.innerHTML=cloudRows.length?cloudRows.map(m=>`<div class="row" style="border-bottom:1px solid #eef2ec;padding:8px 0"><label class="check ${m.is_completed?'done':''}" style="flex:1;border:0"><input type="checkbox" data-cloud-memo-check="${safe(m.id)}" ${m.is_completed?'checked':''}><span>${safe(m.content)}</span></label>${(memoRole==='admin'||(memoUserId&&m.created_by===memoUserId))?`<button type="button" class="btn danger" data-cloud-memo-delete="${safe(m.id)}">刪除</button>`:''}</div>`).join(''):'<p class="muted">雲端還沒有備忘，可以新增一筆測試。</p>';
  }
  async function token(){
   let a;try{a=JSON.parse(localStorage.getItem(STORE)||'null')}catch{}
@@ -1169,10 +1169,11 @@ document.addEventListener('click',async event=>{
   if(!r.ok)throw Error('登入憑證失效，請到右上角 👥 重新檢查匿名身分。');
   const u=await r.json();
   if(!a.user_id||u.id!==a.user_id)throw Error('登入身分不一致，已停止雲端備忘操作。');
-  const check=await fetch(BASE+'/rest/v1/family_members?select=id&auth_user_id=eq.'+encodeURIComponent(u.id)+'&limit=1',{headers:{apikey:KEY,Authorization:'Bearer '+a.access_token},cache:'no-store'});
+  const check=await fetch(BASE+'/rest/v1/family_members?select=id,role&auth_user_id=eq.'+encodeURIComponent(u.id)+'&limit=1',{headers:{apikey:KEY,Authorization:'Bearer '+a.access_token},cache:'no-store'});
   if(!check.ok)throw Error('無法檢查家人身分（HTTP '+check.status+'）。');
   const members=await check.json();
   if(!Array.isArray(members)||!members.length)throw Error('尚未找到你的家人名單紀錄。請先到右上角 👥 完成家人加入。');
+  memoUserId=u.id;memoRole=members[0].role==='admin'?'admin':'member';
   return a.access_token;
  }
  async function request(method,path,payload){
@@ -1184,7 +1185,7 @@ document.addEventListener('click',async event=>{
   return method==='GET'?r.json():null;
  }
  async function load(){
-  const rows=await request('GET','trip_memos?select=id,content,is_completed,created_at&order=created_at.desc&limit=200');
+  const rows=await request('GET','trip_memos?select=id,content,is_completed,created_at,created_by&order=created_at.desc&limit=200');
   cloudRows=Array.isArray(rows)?rows:[];loaded=true;display();lastLoad=Date.now();status('✓ 已同步 '+cloudRows.length+' 筆備忘 · 自動更新中');
  }
  async function run(fn){if(busy)return;busy=true;const buttons=[el('cloud-memo-form')?.querySelector('button')].filter(Boolean);buttons.forEach(b=>b.disabled=true);try{await fn()}catch(e){status('操作未完成：'+String(e?.message||e).slice(0,200))}finally{busy=false;buttons.forEach(b=>{if(b.isConnected)b.disabled=false})}}
@@ -1199,7 +1200,7 @@ document.addEventListener('click',async event=>{
  window.setInterval(()=>autoLoad(),15000);
  if(el('cloud-memo-list'))autoLoad(true);
  document.addEventListener('click',e=>{
-  const del=e.target.closest('[data-cloud-memo-delete]');if(del){const id=del.dataset.cloudMemoDelete;if(!confirm('確定要刪除這筆家人共用備忘？所有裝置都會看不到。'))return;run(async()=>{status('正在刪除備忘…');await request('DELETE','trip_memos?id=eq.'+encodeURIComponent(id));document.dispatchEvent(new Event('miyako-memo-changed'));await load()});}
+  const del=e.target.closest('[data-cloud-memo-delete]');if(del){const id=del.dataset.cloudMemoDelete;const target=cloudRows.find(m=>String(m.id)===String(id));if(!target||!(memoRole==='admin'||(memoUserId&&target.created_by===memoUserId))){status('你沒有權限刪除這筆備忘。');return;}if(!confirm('確定要刪除這筆家人共用備忘？所有裝置都會看不到。'))return;run(async()=>{status('正在刪除備忘…');await request('DELETE','trip_memos?id=eq.'+encodeURIComponent(id));document.dispatchEvent(new Event('miyako-memo-changed'));await load()});}
  });
  document.addEventListener('change',e=>{const x=e.target.closest('[data-cloud-memo-check]');if(!x)return;const id=x.dataset.cloudMemoCheck,checked=x.checked;run(async()=>{status('正在更新備忘…');await request('PATCH','trip_memos?id=eq.'+encodeURIComponent(id),{is_completed:checked});await load()});});
  document.addEventListener('submit',e=>{if(e.target.id!=='cloud-memo-form')return;e.preventDefault();const form=e.target;const input=form.querySelector('[name="cloudmemo"]');const content=String(input?.value||'').trim();if(!content)return;run(async()=>{status('正在新增備忘…');await request('POST','trip_memos',{content,is_completed:false});document.dispatchEvent(new Event('miyako-memo-changed'));if(input)input.value='';await load()});});
