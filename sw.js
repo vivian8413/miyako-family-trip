@@ -19,7 +19,7 @@ self.addEventListener('push', event => {
     /* iOS Web Push is not a supported silent push mechanism.
        A real push must display a user-visible notification. */
     await self.registration.showNotification('宮古島家人有新動態', {
-      body:'開啟 App 查看家人共用更新',
+      body:badgeCount===null?'診斷：推播未包含有效未讀數字':`診斷：未讀通知 ${badgeCount} 則`,
       icon:'./icon-192.png',
       badge:'./icon-192.png',
       tag:'miyako-family-update',
