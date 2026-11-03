@@ -3011,7 +3011,7 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
  window.addEventListener('focus',()=>void load(true));
  window.addEventListener('online',()=>void load(true));
  document.addEventListener('miyako-memo-changed',()=>void load(true));
- setInterval(()=>void load(),3000);
+ setInterval(()=>{if(!document.hidden)void load()},15000);
  void load(true);
 })();
 </script><script id="miyako-push-subscription-v1">
