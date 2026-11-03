@@ -11,17 +11,23 @@ self.addEventListener('push', event => {
   const count=Number(rawCount);
   const badgeCount=rawCount!==undefined && rawCount!==null && rawCount!=='' && Number.isFinite(count) ? Math.max(0,Math.floor(count)) : null;
   event.waitUntil((async()=>{
+    // Schedule both operations immediately; a rejected badge promise must not block the visible push.
+    let badgePromise=Promise.resolve();
     if(badgeCount!==null){
       try {
-        if(badgeCount===0 && typeof self.navigator?.clearAppBadge==='function') await self.navigator.clearAppBadge();
-        else if(badgeCount>0 && typeof self.navigator?.setAppBadge==='function') await self.navigator.setAppBadge(badgeCount);
-        else if(badgeCount===0 && typeof self.registration.clearAppBadge==='function') await self.registration.clearAppBadge();
-        else if(badgeCount>0 && typeof self.registration.setAppBadge==='function') await self.registration.setAppBadge(badgeCount);
-      } catch (_) {}
+        const nav=self.navigator;
+        if(badgeCount===0 && typeof nav?.clearAppBadge==='function'){
+          badgePromise=Promise.resolve(nav.clearAppBadge());
+        }else if(badgeCount>0 && typeof nav?.setAppBadge==='function'){
+          badgePromise=Promise.resolve(nav.setAppBadge(badgeCount));
+        }else{
+          console.warn('Background badging API unavailable', {badgeCount});
+        }
+      }catch(error){
+        console.error('Background badge call failed', String(error));
+      }
     }
-    /* iOS Web Push is not a supported silent push mechanism.
-       A real push must display a user-visible notification. */
-    await self.registration.showNotification('宮古島家人有新動態', {
+    const notificationPromise=self.registration.showNotification('宮古島家人有新動態', {
       body:badgeCount===null?'診斷：推播未包含有效未讀數字':`診斷：未讀通知 ${badgeCount} 則`,
       icon:'./icon-192.png',
       badge:'./icon-192.png',
@@ -29,6 +35,9 @@ self.addEventListener('push', event => {
       renotify:false,
       data:{url:self.registration.scope}
     });
+    const results=await Promise.allSettled([badgePromise,notificationPromise]);
+    if(results[0].status==='rejected')console.error('Background badge rejected',String(results[0].reason));
+    if(results[1].status==='rejected')console.error('Push notification rejected',String(results[1].reason));
   })());
 });
 self.addEventListener('notificationclick',event=>{
