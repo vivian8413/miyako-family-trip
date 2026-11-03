@@ -2920,9 +2920,35 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
  const STORE='miyako_auth_v18';
  let busy=false,lastUser='',lastLoad=0;
  function credentials(){try{const a=JSON.parse(localStorage.getItem(STORE)||'null');return a?.access_token&&a?.user_id?a:null}catch{return null}}
+ let refreshPromise=null;
+ async function refreshSession(){
+  if(refreshPromise)return refreshPromise;
+  refreshPromise=(async()=>{
+   const before=credentials();
+   if(!before?.refresh_token)throw Error('原有登入憑證需要更新，請使用家人頁面的身分檢查功能；不要建立新身分');
+   const res=await fetch(BASE+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:before.refresh_token}),cache:'no-store'});
+   if(!res.ok)throw Error('登入憑證更新失敗（HTTP '+res.status+'）；原有身分已保留');
+   const next=await res.json();
+   if(next.user?.id!==before.user_id||!next.access_token||!next.refresh_token)throw Error('登入身分不一致，已停止更新');
+   const current=credentials();
+   if(current?.user_id!==before.user_id)throw Error('家人身分已變更，停止覆寫');
+   // Another feature may already have refreshed this token while our request was pending.
+   if(current.refresh_token!==before.refresh_token)return current;
+   const saved={...current,access_token:next.access_token,refresh_token:next.refresh_token,expires_at:Date.now()+Number(next.expires_in||3600)*1000};
+   localStorage.setItem(STORE,JSON.stringify(saved));
+   return saved;
+  })();
+  try{return await refreshPromise}finally{refreshPromise=null}
+ }
  async function request(method,path,body){
-  const a=credentials();if(!a)throw Error('尚未取得家人登入身分');
-  const res=await fetch(BASE+'/rest/v1/'+path,{method,headers:{apikey:KEY,Authorization:'Bearer '+a.access_token,'Content-Type':'application/json',Prefer:'return=representation'},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+  let a=credentials();if(!a)throw Error('尚未取得家人登入身分');
+  const send=token=>fetch(BASE+'/rest/v1/'+path,{method,headers:{apikey:KEY,Authorization:'Bearer '+token,'Content-Type':'application/json',Prefer:'return=representation'},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+  let res=await send(a.access_token);
+  if(res.status===401){
+   const latest=credentials();
+   a=latest?.user_id===a.user_id&&latest.access_token!==a.access_token?latest:await refreshSession();
+   res=await send(a.access_token);
+  }
   if(!res.ok)throw Error('雲端通知尚未就緒（HTTP '+res.status+'）');
   return res.json();
  }
