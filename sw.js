@@ -28,7 +28,7 @@ self.addEventListener('push', event => {
       }
     }
     const notificationPromise=self.registration.showNotification('宮古島家人有新動態', {
-      body:badgeCount===null?'診斷：推播未包含有效未讀數字':`診斷：未讀通知 ${badgeCount} 則`,
+      body:'開啟 App 查看家人共用更新',
       icon:'./icon-192.png',
       badge:'./icon-192.png',
       tag:'miyako-family-update',
