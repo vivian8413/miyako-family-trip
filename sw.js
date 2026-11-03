@@ -7,13 +7,16 @@ self.addEventListener('activate', event => event.waitUntil(self.clients.claim())
 self.addEventListener('push', event => {
   let data={};
   try { data=event.data ? event.data.json() : {}; } catch (_) {}
-  const count=Number(data.unread_count);
-  const badgeCount=Number.isFinite(count) ? Math.max(0,Math.floor(count)) : null;
+  const rawCount=data.unread_count;
+  const count=Number(rawCount);
+  const badgeCount=rawCount!==undefined && rawCount!==null && rawCount!=='' && Number.isFinite(count) ? Math.max(0,Math.floor(count)) : null;
   event.waitUntil((async()=>{
     if(badgeCount!==null){
       try {
-        if(badgeCount===0 && self.registration.clearAppBadge) await self.registration.clearAppBadge();
-        else if(badgeCount>0 && self.registration.setAppBadge) await self.registration.setAppBadge(badgeCount);
+        if(badgeCount===0 && typeof self.navigator?.clearAppBadge==='function') await self.navigator.clearAppBadge();
+        else if(badgeCount>0 && typeof self.navigator?.setAppBadge==='function') await self.navigator.setAppBadge(badgeCount);
+        else if(badgeCount===0 && typeof self.registration.clearAppBadge==='function') await self.registration.clearAppBadge();
+        else if(badgeCount>0 && typeof self.registration.setAppBadge==='function') await self.registration.setAppBadge(badgeCount);
       } catch (_) {}
     }
     /* iOS Web Push is not a supported silent push mechanism.
