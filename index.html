@@ -609,7 +609,7 @@ function tripManager(){
  `<div class="card"><h3>🧳 其他旅行草稿（${drafts.length}）</h3>${drafts.length?drafts.map(t=>`<div style="padding:14px 0;border-bottom:1px solid #e9e9e0"><div class="row" style="gap:8px"><b>${escapeHtml(t.name||'未命名旅行')}</b><span class="tag">草稿</span></div><p class="muted">${escapeHtml(t.country||'')}${t.city?'・'+escapeHtml(t.city):''}｜${escapeHtml(t.start||'')} ～ ${escapeHtml(t.end||'')}</p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn secondary" type="button" data-open-trip-draft="${escapeHtml(t.id)}">開啟旅行資料</button><button class="btn danger" type="button" data-remove-trip-draft="${escapeHtml(t.id)}">刪除旅行與本機照片</button></div></div>`).join(''):'<p class="muted">目前沒有其他旅行。你可以先建立下一次旅遊的基本資料。</p>'}</div>`+
  `<div class="note">🔒 此階段為安全的旅行清單，新旅行已提供獨立本機行程、航班與住宿；目前不切換宮古島的航班、費用、備忘或相簿。其他旅行共用功能仍待開發。</div>`;
 }
-const navItems=[['home','🏠','首頁'],['flights','✈️','航班'],['days','🗓️','行程'],['map','📍','導航／推薦美食'],['packing','🧳','行李'],['memos','📋','備忘'],['expenses','💰','費用'],['wall','🌺','照片牆']];const sections=[['flights','✈️','航班','航班時間與行李'],['days','🗓️','行程','每日旅遊計畫'],['map','📍','導航／推薦美食','景點與美食探索'],['packing','🧳','行李','個人打包清單'],['memos','📋','備忘','家人共同事項'],['expenses','💰','費用','雙幣分帳'],['wall','🌺','照片牆','自由拼貼回憶']];
+const navItems=[['home','🏠','首頁'],['flights','✈️','航班'],['days','🗓️','行程'],['map','📍','行程導航／推薦美食'],['packing','🧳','行李'],['memos','📋','備忘'],['expenses','💰','費用'],['wall','🌺','照片牆']];const sections=[['flights','✈️','航班','航班時間與行李'],['days','🗓️','行程','每日旅遊計畫'],['map','📍','行程導航／推薦美食','景點與美食探索'],['packing','🧳','行李','個人打包清單'],['memos','📋','備忘','家人共同事項'],['expenses','💰','費用','雙幣分帳'],['wall','🌺','照片牆','自由拼貼回憶']];
 const days=[{date:'2026-11-18',name:'11/18 週三',events:[['13:00','抵達下地島機場 SHI','入境、領行李'],['14:00','Toyota 兩台車取車','取車地點待確認'],['14:30','HARRY’S 蝦蝦飯','外帶午餐'],['15:10','Daddy & Mommy 民宿','入住／放行李'],['15:40','宮古神社／彈性休息','視當天狀況調整'],['16:20','なかゆくい 下午點心（視時間）','以 17:00 訂位為優先'],['17:00','焼肉 玉城','已預訂'],['18:30','San-A／MaxValu','採買'],['19:30','返回民宿／自由居酒屋','輕鬆結束第一天']]},{date:'2026-11-19',name:'11/19 週四',events:[['07:30','早餐','準備泳衣及用品'],['08:15','前往 MONKEY NAVY','集合位置待確認'],['09:00','MONKEY NAVY 浮潛','已預約，至 10:30'],['10:30','回民宿洗澡換衣','現場僅簡易沖洗'],['12:00','市區漢堡或拉麵','午餐'],['13:30','市區逛街與咖啡','彈性活動至 17:30'],['19:00','Ryukyu 豬排飯','已預訂'],['20:30','超市／民宿','彈性安排']]},{date:'2026-11-20',name:'11/20 週五',events:[['08:00','起床、整理行李',''],['08:30','麥當勞早餐',''],['09:00','回民宿整理、確認充電器',''],['09:30','民宿退房、兩車裝行李','確認 9 位家人'],['10:30','カママ嶺公園','風獅爺大溜滑梯'],['11:30','咖啡廳／午餐',''],['14:00','抵達 Canopy by Hilton','可先寄放行李、等待'],['15:00','Canopy 正式入住','飯店自由活動'],['19:00','燒肉 CURURU','已預訂']]},{date:'2026-11-21',name:'11/21 週六',events:[['07:30','飯店早餐','至 08:30'],['08:30','飯店自由時間',''],['09:00','整理行李',''],['09:40','確認房間、辦理退房','官方最晚 11:00'],['10:00','兩車集合出發',''],['10:30','Toyota 還車','地點待確認；預留至 11:30'],['11:30','機場報到、安檢',''],['14:00','JX887 起飛','下地島 → 桃園'],['14:10','抵達桃園 T1','台灣時間']]}];
 // Extra dates are local to this device; do not reorder the original four days.
 function dateLabel(value){
@@ -733,10 +733,10 @@ function itinerary(){const ev=dayEvents();const edit=state.editingEvent;const ca
 }
 function maps(){
  const foodTab=window.__miyakoFoodTab||'nav';
- const tabs='<div class="tabs"><button class="tab '+(foodTab==='nav'?'active':'')+'" data-food-tab="nav">🗺️ 景點導航</button><button class="tab '+(foodTab==='food'?'active':'')+'" data-food-tab="food">🍽️ 推薦美食</button></div>';
- if(foodTab==='food')return pageTitle('📍 導航／推薦美食','依地區、料理與附近位置尋找餐廳。')+tabs+'<div class="card"><h3>🍽️ 宮古島美食地圖</h3><p class="muted">包含餐廳圖片、地區篩選、Google 評論入口、定位與導航。</p><a class="btn full" href="./miyako-food.html" style="display:block;text-align:center;text-decoration:none">開啟推薦美食清單 →</a></div>';
+ const tabs='<div class="tabs"><button class="tab '+(foodTab==='nav'?'active':'')+'" data-food-tab="nav">🗺️ 行程導航</button><button class="tab '+(foodTab==='food'?'active':'')+'" data-food-tab="food">🍽️ 推薦美食</button></div>';
+ if(foodTab==='food')return pageTitle('📍 行程導航／推薦美食','依地區、料理與附近位置尋找餐廳。')+tabs+'<div class="card"><h3>🍽️ 宮古島美食地圖</h3><p class="muted">包含餐廳圖片、地區篩選、Google 評論入口、定位與導航。</p><a class="btn full" href="./miyako-food.html" style="display:block;text-align:center;text-decoration:none">開啟推薦美食清單 →</a></div>';
  const original=mapsNavigationContent();
- return pageTitle('📍 導航／推薦美食','景點導航與推薦美食都在這裡。')+tabs+original;
+ return pageTitle('📍 行程導航／推薦美食','景點導航與推薦美食都在這裡。')+tabs+original;
 }
 function mapsNavigationContent(){
  const officialSite=url=>/^https:\/\/(?:www\.)?hilton\.com\//i.test(url||'');
