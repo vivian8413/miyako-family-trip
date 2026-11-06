@@ -747,8 +747,7 @@ function mapsNavigationContent(){
   {name:'🚙 Toyota 租車取還車',text:'兩台車的實際取車、還車分店尚未確認。請以租車預約確認書為準。',query:'Toyota Rent a Car Miyakojima'},
   {name:'🤿 MONKEY NAVY 浮潛集合點',text:'集合地址尚未確認；海邊活動的集合地點可能不同於業者營業地址。請以預約通知為準。',query:'MONKEY NAVY Miyakojima'}
  ];
- return 
- `<div class="card"><h3>⚠️ 出發前待確認（2 項）</h3>${pending.map(x=>`<div style="padding:11px 0;border-top:1px solid #eef2ec"><b>${escapeHtml(x.name)}</b><p class="muted" style="margin:6px 0">${escapeHtml(x.text)}</p><a class="small-link" target="_blank" rel="noopener noreferrer" href="${escapeHtml('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(x.query))}">🔎 僅搜尋參考（非集合點）</a></div>`).join('')}</div>`+
+ return `<div class="card"><h3>⚠️ 出發前待確認（2 項）</h3>${pending.map(x=>`<div style="padding:11px 0;border-top:1px solid #eef2ec"><b>${escapeHtml(x.name)}</b><p class="muted" style="margin:6px 0">${escapeHtml(x.text)}</p><a class="small-link" target="_blank" rel="noopener noreferrer" href="${escapeHtml('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(x.query))}">🔎 僅搜尋參考（非集合點）</a></div>`).join('')}</div>`+
  `<div class="card"><h3>🗺️ 景點與餐廳</h3><p class="muted">選擇 Google 地圖搜尋後，請核對店名與地址。已提供地圖網址的民宿仍建議對照訂房資料。</p>${places.filter(([name])=>!/MONKEY NAVY/.test(name)).map(([name,query,url])=>{
    const mapped=Boolean(query||url&&!officialSite(url));
    const actions=[];
