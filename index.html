@@ -735,7 +735,7 @@ function itinerary(){const ev=dayEvents();const edit=state.editingEvent;const ca
 function maps(){
  const foodTab=window.__miyakoFoodTab||'nav';
  const tabs='<div class="tabs"><button class="tab '+(foodTab==='nav'?'active':'')+'" data-food-tab="nav">🗺️ 行程導航</button><button class="tab '+(foodTab==='food'?'active':'')+'" data-food-tab="food">🍽️ 推薦美食</button></div>';
- if(foodTab==='food')return pageTitle('📍 行程導航／推薦美食','依地區、料理與附近位置尋找餐廳。')+tabs+'<iframe title="宮古島美食推薦清單" src="./miyako-food.html?v=20261106" loading="eager" style="display:block;width:100%;height:75vh;min-height:550px;border:0;border-radius:16px;background:#f8faf5"></iframe>';
+ if(foodTab==='food')return pageTitle('📍 行程導航／推薦美食','依地區、料理與附近位置尋找餐廳。')+tabs+'<div class="card"><h3>🍽️ 宮古島美食地圖</h3><p class="muted">包含餐廳圖片、地區篩選、Google 評論入口、定位與導航。</p><a class="btn full" href="./miyako-food.html?v=20261106" style="display:block;text-align:center;text-decoration:none">全螢幕查看美食清單 →</a></div><iframe title="宮古島美食推薦清單" src="./miyako-food.html?v=20261106" loading="eager" style="display:block;width:100%;height:75vh;min-height:550px;border:0;border-radius:16px;background:#f8faf5"></iframe>';
  const original=mapsNavigationContent();
  return pageTitle('📍 行程導航／推薦美食','景點導航與推薦美食都在這裡。')+tabs+original;
 }
