@@ -735,7 +735,7 @@ function itinerary(){const ev=dayEvents();const edit=state.editingEvent;const ca
 function maps(){
  const foodTab=window.__miyakoFoodTab||'nav';
  const tabs='<div class="tabs"><button class="tab '+(foodTab==='nav'?'active':'')+'" data-food-tab="nav">🗺️ 行程導航</button><button class="tab '+(foodTab==='food'?'active':'')+'" data-food-tab="food">🍽️ 推薦美食</button></div>';
- if(foodTab==='food')return pageTitle('📍 行程導航／推薦美食','依地區、料理與附近位置尋找餐廳。')+tabs+'<div class="card"><h3>🍽️ 推薦美食</h3><p class="muted">點選下方入口，查看各間餐廳的介紹、料理圖片、分類與 Google 地圖連結。</p><a class="btn full" href="./miyako-food.html?v=20261108-refresh2" style="display:block;text-align:center;text-decoration:none">🍽️ 進入推薦美食 →</a></div>';
+ if(foodTab==='food')return pageTitle('📍 行程導航／推薦美食','依地區、料理與附近位置尋找餐廳。')+tabs+'<div class="card"><h3>🍽️ 推薦美食</h3><p class="muted">點選下方入口，查看各間餐廳的介紹、料理圖片、分類與 Google 地圖連結。</p><a class="btn full" href="./miyako-food.html?v=20261108-fixed-refresh3" style="display:block;text-align:center;text-decoration:none">🍽️ 進入推薦美食 →</a></div>';
  const original=mapsNavigationContent();
  return pageTitle('📍 行程導航／推薦美食','景點導航與推薦美食都在這裡。')+tabs+original;
 }
