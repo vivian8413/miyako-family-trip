@@ -1410,17 +1410,25 @@ document.addEventListener('change',async event=>{
  const membersOf=x=>Array.isArray(x.members)?[...new Set(x.members.map(Number))]:[];
  
  function settlementSummary(){
-  const net=Array(9).fill(0);
+  const net=Array(9).fill(0),direct=Array.from({length:9},()=>Array(9).fill(0));
   for(const x of rows){
    const n=personalTwd(x),payer=Number(x.payer),members=membersOf(x);
-   if(!Number.isFinite(n)||n<=0||payer<1||payer>9||!members.length||members.some(m=>!Number.isInteger(m)||m<1||m>9))
+   if(!Number.isFinite(n)||n<=0||!Number.isInteger(payer)||payer<1||payer>9||!members.length||members.some(m=>!Number.isInteger(m)||m<1||m>9))
     return '<p class="muted">⚠️ 有共用代墊紀錄缺少有效的匯率、付款者或分攤成員；為避免錯誤結算，請先核對該筆資料。</p>';
-   net[payer-1]+=n;for(const m of members)net[m-1]-=n/members.length;
+   net[payer-1]+=n;
+   for(const m of members){const share=n/members.length;net[m-1]-=share;if(m!==payer)direct[m-1][payer-1]+=share;}
   }
   const cents=net.map(n=>Math.round(n*100));const remainder=cents.reduce((a,b)=>a+b,0);if(remainder)cents[0]-=remainder;
-  const ds=cents.map((v,i)=>({i,v:-v})).filter(x=>x.v>0),cs=cents.map((v,i)=>({i,v})).filter(x=>x.v>0);let d=0,c=0;const transfers=[];
-  while(d<ds.length&&c<cs.length){let n=Math.min(ds[d].v,cs[c].v);if(n>0)transfers.push('家人 '+(ds[d].i+1)+' → 家人 '+(cs[c].i+1)+'：NT$ '+(n/100).toFixed(2));ds[d].v-=n;cs[c].v-=n;if(!ds[d].v)d++;if(!cs[c].v)c++;}
-  return '<h3>💸 家人代墊結算（'+viewCurrency+'）</h3><p class="muted">只計算家人代墊，不把公積金支出重複算進個人債務。JPY 結算為依顯示匯率折算的參考值。</p>'+cents.map((n,i)=>'<div class="row"><span>家人 '+(i+1)+'</span><b>'+(n>=0?'應收 ':'應付 ')+moneyTwd(Math.abs(n)/100)+'</b></div>').join('')+'<h4>建議轉帳</h4>'+(transfers.length?transfers.map(x=>'<p class="muted">'+safe(x.replace(/NT\$ ([\d.]+)/,(_,v)=>moneyTwd(Number(v))))+'</p>').join(''):'<p class="muted">沒有需要結算的個人代墊。</p>');
+  // Only settle debts between people who directly shared an expense.
+  // Net opposite-direction obligations for the same pair, but do not
+  // redirect unrelated family members' debts to another payer.
+  const transfers=[];
+  for(let i=0;i<9;i++)for(let j=i+1;j<9;j++){
+   const amount=Math.round((direct[i][j]-direct[j][i])*100);
+   if(amount>0)transfers.push('家人 '+(i+1)+' → 家人 '+(j+1)+'：'+moneyTwd(amount/100));
+   else if(amount<0)transfers.push('家人 '+(j+1)+' → 家人 '+(i+1)+'：'+moneyTwd(-amount/100));
+  }
+  return '<h3>💸 家人代墊結算（'+viewCurrency+'）</h3><p class="muted">每人應收／應付為所有已參與費用的合併總額；公積金支出不會重複計入。JPY 為依顯示匯率折算的參考值。</p>'+cents.map((n,i)=>'<div class="row"><span>家人 '+(i+1)+'</span><b>'+(n>=0?'應收 ':'應付 ')+moneyTwd(Math.abs(n)/100)+'</b></div>').join('')+'<h4>依實際分攤關係建議轉帳</h4><p class="muted">只向自己參與費用的代墊者付款；同兩人互相代墊的費用會抵銷。轉帳筆數可能較多，逐筆四捨五入可能產生極小尾差。</p>'+(transfers.length?transfers.map(x=>'<p class="muted">'+safe(x)+'</p>').join(''):'<p class="muted">沒有需要結算的個人代墊。</p>');
  }
  function display(){
   const panel=el('cloud-expense-panel'),list=el('cloud-expense-list');if(!panel||!list)return;
