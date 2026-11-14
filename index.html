@@ -1317,7 +1317,7 @@ document.addEventListener('click',async event=>{
     if(admin!==true){out.textContent='目前登入身分不是管理員，無法查看申請。';return;}
     const rows=await api(token,'GET','/rest/v1/family_join_requests?select=id,nickname,created_at&status=eq.pending&order=created_at.asc&limit=30');
     out.textContent='待審核：'+rows.length+' 筆';
-    for(const r of rows){const card=document.createElement('div');card.className='card';const name=document.createElement('b');name.textContent=r.nickname;card.append(name);const reviewButtons=[];let reviewing=false;for(const [label,decision] of [['核准','approved'],['拒絕','rejected']]){const btn=document.createElement('button');btn.className='btn '+(decision==='rejected'?'danger':'');btn.style.margin='8px 5px 0 0';btn.textContent=label;reviewButtons.push(btn);btn.addEventListener('click',async()=>{if(reviewing)return;if(!confirm('確定'+label+'「'+r.nickname+'」的申請？'))return;reviewing=true;reviewButtons.forEach(b=>b.disabled=true);try{await api(token,'POST','/rest/v1/rpc/review_family_join_request',{p_request_id:r.id,p_decision:decision});out.textContent='✓ 已'+label+'「'+r.nickname+'」，請重新讀取待審核清單。';card.remove();}catch(err){out.textContent='審核失敗：'+err.message;reviewing=false;reviewButtons.forEach(b=>b.disabled=false);}});card.append(btn);}list.append(card);}
+    for(const r of rows){const card=document.createElement('div');card.className='card';const name=document.createElement('b');name.textContent=r.nickname;card.append(name);const reviewButtons=[];let reviewing=false;for(const [label,decision] of [['核准','approved'],['拒絕','rejected']]){const btn=document.createElement('button');btn.className='btn '+(decision==='rejected'?'danger':'');btn.style.margin='8px 5px 0 0';btn.textContent=label;reviewButtons.push(btn);btn.addEventListener('click',async()=>{if(reviewing)return;if(!confirm('確定'+label+'「'+r.nickname+'」的申請？'))return;reviewing=true;reviewButtons.forEach(b=>b.disabled=true);try{await api(token,'POST','/rest/v1/rpc/review_family_join_request',{p_request_id:r.id,p_decision:decision});if(decision==='approved'){window.dispatchEvent(new CustomEvent('miyako-family-approved',{detail:{nickname:r.nickname}}));}out.textContent='✓ 已'+label+'「'+r.nickname+'」，請重新讀取待審核清單。';card.remove();}catch(err){out.textContent='審核失敗：'+err.message;reviewing=false;reviewButtons.forEach(b=>b.disabled=false);}});card.append(btn);}list.append(card);}
    }catch(err){out.textContent='讀取失敗：'+String(err.message||err);}finally{load.disabled=false;}return;
   }
  });
@@ -2436,6 +2436,33 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
    await load();alert('已儲存六位家人的暱稱對應，所有已核准家人重新整理即可看到。');
   }catch(e){alert('設定未完全完成：'+String(e.message||e));await load()}
  }
+ // Allocate only previously unused slots after an explicit admin approval.
+ // Existing mappings remain immutable; the unique slot constraint protects duplicates.
+ let allocating=false;
+ async function allocateNewlyApproved(nickname){
+  if(allocating)return;
+  allocating=true;
+  try{
+   const [members,mappings,isAdmin]=await Promise.all([
+    api('family_members?select=auth_user_id,nickname&limit=20'),
+    api('trip_expense_member_slots?select=auth_user_id,slot&limit=9'),
+    api('rpc/is_family_admin',{method:'POST',body:'{}'})
+   ]);
+   if(isAdmin!==true||!Array.isArray(members)||!Array.isArray(mappings))throw Error('無法安全確認管理員、家人或編號資料');
+   const matching=members.filter(p=>p.nickname===nickname);
+   if(matching.length!==1)throw Error('同名或找不到新家人，請管理員確認後再設定');
+   const person=matching[0];
+   if(mappings.some(x=>x.auth_user_id===person.auth_user_id)){await load();return}
+   const used=new Set(mappings.map(x=>Number(x.slot)));
+   const next=Array.from({length:9},(_,i)=>i+1).find(n=>!used.has(n));
+   if(!next)throw Error('家人 1～9 已滿，無法自動新增');
+   await api('trip_expense_member_slots?on_conflict=auth_user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({auth_user_id:person.auth_user_id,slot:next})});
+   await load();
+   alert('✓ '+nickname+' 已自動對應家人 '+next+'，其他家人重新整理即可同步。');
+  }catch(e){alert('家人已核准，但自動編號尚未完成：'+String(e.message||e)+'。原有編號及費用未更動，請至家人編號對應檢查。');await load()}
+  finally{allocating=false}
+ }
+ window.addEventListener('miyako-family-approved',e=>{if(e.detail?.nickname)void allocateNewlyApproved(e.detail.nickname)});
  function render(){
   const select=q('approved-payer-select'),status=q('approved-payer-status'),panel=q('family-slot-mapping');
   if(select){const previous=select.value;select.replaceChildren(new Option('請選擇代墊家人暱稱',''));
@@ -2451,8 +2478,8 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
   if(error){const msg=document.createElement('p');msg.className='notice';msg.textContent='⚠️ '+error;panel.append(msg);return}
   if(!loaded){panel.textContent='正在取得雲端家人對應…';return}
   if(!admin){panel.textContent='☁️ 家人編號由管理員統一設定；此手機會自動讀取最新對應。';return}
-  const note=document.createElement('p');note.className='muted';note.textContent='只有管理員可設定；所有家人共用同一份編號。請依舊帳本實際身分確認，依已確認的加入順序設定，原有編號不會自動重新排列。';panel.append(note);
-  const auto=document.createElement('button');auto.type='button';auto.className='btn secondary full';auto.textContent='✨ 依確認順序設定六位家人暱稱';auto.addEventListener('click',assignInitial);panel.append(auto);
+  const note=document.createElement('p');note.className='muted';note.textContent='新家人核准後會自動取得最小空缺編號；既有編號不變。下方保留管理員手動核對與修正功能。';panel.append(note);
+  const auto=document.createElement('button');auto.type='button';auto.className='btn secondary full';auto.textContent='✨ 設定原有家人暱稱對應';auto.addEventListener('click',assignInitial);panel.append(auto);
   people.forEach(person=>{const row=document.createElement('div');row.className='row';row.style.padding='7px 0';
    const name=document.createElement('span');name.textContent=person.nickname;name.style.flex='1';
    const pick=document.createElement('select');pick.className='field';pick.style.width='130px';pick.setAttribute('aria-label',person.nickname+' 原帳本編號');
