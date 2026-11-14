@@ -1448,8 +1448,14 @@ document.addEventListener('change',async event=>{
   const done=paid&&received;
   if(history)return '';
   const name=i=>expenseNickname(i);
-  const label=done?'✓ 已結清':paid?'等待收款人確認':received?'等待付款人確認':'尚未確認';
-  const button=(role,checked)=>demoMode?'<button type="button" class="btn secondary" style="font-size:12px;padding:5px 9px;margin-top:6px" data-demo-from="'+from+'" data-demo-to="'+to+'" data-demo-cents="'+cents+'" data-demo-role="'+role+'">'+(checked?'↩ 模擬取消確認':role==='payer'?'模擬：我已付款':'模擬：我已收款')+'</button>':!paidAvailable||mySlot!==(role==='payer'?from+1:to+1)?'':'<button type="button" class="btn secondary" style="font-size:12px;padding:5px 9px;margin-top:6px" data-payment-from="'+(from+1)+'" data-payment-to="'+(to+1)+'" data-payment-cents="'+cents+'" data-payment-confirm="'+(!checked)+'">'+(checked?'↩ 取消確認':role==='payer'?'✓ 我已付款':'✓ 我已收款')+'</button>';
+  const label=done?'✓ 已結清':paid?'✓ 已確認付款，等待收款人確認':received?'✓ 已確認收款，等待付款人確認':'尚未確認付款／收款';
+  const button=(role,checked)=>{
+   const text=checked?'↩ 取消'+(role==='payer'?'付款':'收款')+'確認':'確認已'+(role==='payer'?'付款':'收款');
+   const base='type="button" class="btn secondary" style="font-size:12px;padding:5px 9px;margin-top:6px"';
+   if(demoMode)return '<button '+base+' data-demo-from="'+from+'" data-demo-to="'+to+'" data-demo-cents="'+cents+'" data-demo-role="'+role+'">'+(checked?'↩ 模擬取消'+(role==='payer'?'付款':'收款')+'確認':'模擬：'+text)+'</button>';
+   if(!paidAvailable||mySlot!==(role==='payer'?from+1:to+1))return '';
+   return '<button '+base+' data-payment-from="'+(from+1)+'" data-payment-to="'+(to+1)+'" data-payment-cents="'+cents+'" data-payment-confirm="'+(!checked)+'">'+text+'</button>';
+  };
   const strike=done?'text-decoration:line-through;text-decoration-color:#9aa6a1;':'';
   return '<div style="padding:11px 0;border-bottom:1px solid rgba(128,128,128,.16)"><div class="row" style="align-items:center;gap:12px"><span style="'+strike+'">'+name(from)+' → '+name(to)+'</span><b style="white-space:nowrap;'+strike+'">'+moneyTwd(amount)+'</b></div><div class="row" style="align-items:center;gap:8px;margin-top:3px"><span class="muted" style="font-size:12px;'+(done?'color:#27815b;':'')+'">'+label+'</span>'+button('payer',paid)+button('payee',received)+'</div></div>';
  }
@@ -1590,7 +1596,7 @@ document.addEventListener('change',async event=>{
   const payment=e.target.closest('[data-payment-from]');
   if(payment){
    if(!paidAvailable)return alert('付款同步尚未啟用：'+paidIssue);
-   if(!confirm(payment.dataset.paymentConfirm==='true'?'確認這筆付款／收款已完成？需雙方確認才會移到已完成紀錄。':'要取消自己的付款確認嗎？'))return;
+   if(!confirm(payment.dataset.paymentConfirm==='true'?'請確認這筆款項確實已經付款或收到款項。按下確定後會記錄到所有家人的正式帳本；仍需雙方確認才會顯示已結清。':'確定取消自己在正式帳本上的付款／收款確認嗎？'))return;
    return run(async()=>{
     await req('POST','rpc/set_trip_settlement_confirmation',{
      p_payer:Number(payment.dataset.paymentFrom),p_payee:Number(payment.dataset.paymentTo),
