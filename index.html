@@ -1397,7 +1397,7 @@ document.addEventListener('change',async event=>{
  const status=t=>{if(el('cloud-expense-status'))el('cloud-expense-status').textContent=t};
  const safe=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const yen=n=>'¥'+Math.round(n).toLocaleString('zh-TW');
- async function token(){
+ async function validateToken(){
   let a=JSON.parse(localStorage.getItem(STORE)||'null');if(!a?.access_token)throw Error('請先在家人頁面建立匿名身分，並等待管理員核准。');
   let r=await fetch(BASE+'/auth/v1/user',{headers:{apikey:KEY,Authorization:'Bearer '+a.access_token},cache:'no-store'});
   if(!r.ok&&a.refresh_token){const rr=await fetch(BASE+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:a.refresh_token})});if(rr.ok){const n=await rr.json();if(!a.user_id||n.user?.id!==a.user_id||!n.access_token||!n.refresh_token)throw Error('更新憑證時身分不一致；已保留原本家人資料。');const current=JSON.parse(localStorage.getItem(STORE)||'null');if(current?.user_id!==a.user_id)throw Error('登入身分已在其他分頁變更，已停止操作。');a={...a,access_token:n.access_token,refresh_token:n.refresh_token,expires_at:Date.now()+Number(n.expires_in||3600)*1000};localStorage.setItem(STORE,JSON.stringify(a));r=await fetch(BASE+'/auth/v1/user',{headers:{apikey:KEY,Authorization:'Bearer '+a.access_token},cache:'no-store'})}}
@@ -1405,6 +1405,19 @@ document.addEventListener('change',async event=>{
   const u=await r.json();const m=await fetch(BASE+'/rest/v1/family_members?select=id&auth_user_id=eq.'+encodeURIComponent(u.id)+'&limit=1',{headers:{apikey:KEY,Authorization:'Bearer '+a.access_token},cache:'no-store'});
   if(!m.ok||!(await m.json()).length)throw Error('尚未通過家人核准，無法存取共用費用。');return a.access_token;
  }
+ let tokenCache=null,tokenCacheAt=0,tokenInFlight=null;
+ async function token(){
+  const identity=JSON.parse(localStorage.getItem(STORE)||'null');
+  if(!identity?.access_token){tokenCache=null;throw Error('請先在家人頁面建立匿名身分。');}
+  if(tokenCache?.userId===identity.user_id&&tokenCache.access===identity.access_token&&Date.now()-tokenCacheAt<45000&&(!identity.expires_at||Number(identity.expires_at)>Date.now()+60000))return identity.access_token;
+  if(tokenInFlight)return tokenInFlight;
+  tokenInFlight=validateToken().then(access=>{
+   const current=JSON.parse(localStorage.getItem(STORE)||'null');
+   tokenCache={userId:current?.user_id,access};tokenCacheAt=Date.now();return access;
+  }).finally(()=>{tokenInFlight=null});
+  return tokenInFlight;
+ }
+
  async function req(method,path,payload){const t=await token();const headers={apikey:KEY,Authorization:'Bearer '+t,Accept:'application/json'};if(payload!==undefined)headers['Content-Type']='application/json';if(method!=='GET')headers.Prefer='return=representation';const r=await fetch(BASE+'/rest/v1/'+path,{method,headers,body:payload===undefined?undefined:JSON.stringify(payload),cache:'no-store'});if(!r.ok){const b=await r.json().catch(()=>({}));throw Error('雲端操作未完成（HTTP '+r.status+'）：'+String(b.message||'請確認資料表及權限').slice(0,110))}return r.status===204?[]:r.json()}
 
  const membersOf=x=>Array.isArray(x.members)?[...new Set(x.members.map(Number))]:[];
@@ -1480,24 +1493,45 @@ document.addEventListener('change',async event=>{
   list.innerHTML='<p class="muted">雲端代墊 '+rows.length+' 筆'+(fundReady?' · 公積金收支 '+fund.length+' 筆':' · 公積金未連線')+'</p>'+(html||'<p class="muted">目前還沒有共用費用紀錄。</p>')+'<div class="card">'+settlementSummary()+'</div>';
  }
  async function load(){
-  const all=[],pageSize=500,max=5000;
-  for(let i=0;i<max;i+=pageSize){const page=await req('GET','trip_expenses?select=id,description,amount,currency,rate,exchange_rate,payer,members,created_at&order=created_at.desc,id.desc&limit='+pageSize+'&offset='+i);if(!Array.isArray(page))throw Error('無法讀取共用代墊資料');all.push(...page);if(page.length<pageSize)break;}
-  if(all.length>=max)throw Error('共用代墊紀錄已達讀取上限，為避免結算不完整已停止計算。');
-  rows=all;fundReady=false;let issue='';
-  try{const f=await req('GET','trip_fund_transactions?select=id,transaction_type,amount_jpy,description,created_at&order=created_at.desc,id.desc&limit=5000');if(!Array.isArray(f))throw Error('公積金格式不正確');if(f.some(x=>!['deposit','expense'].includes(x.transaction_type)||!Number.isFinite(Number(x.amount_jpy))||Number(x.amount_jpy)<=0))throw Error('公積金存在無效交易類型或金額，已停止計算餘額');if(f.length>=5000)throw Error('公積金紀錄達讀取上限，已停止計算餘額；請先確認完整帳本。');fund=f;fundReady=true;}catch(e){fund=[];issue=e.message||String(e)}
-  fundIssue=issue;
-  paidRecords=[];paidAvailable=false;paidIssue='';mySlot=0;
-  try{
-   const t=await token();
+  status('正在同步雲端帳本…');
+  const expensesTask=(async()=>{
+   const all=[],pageSize=500,max=5000;
+   for(let i=0;i<max;i+=pageSize){
+    const page=await req('GET','trip_expenses?select=id,description,amount,currency,rate,exchange_rate,payer,members,created_at&order=created_at.desc,id.desc&limit='+pageSize+'&offset='+i);
+    if(!Array.isArray(page))throw Error('無法讀取共用代墊資料');
+    all.push(...page);if(page.length<pageSize)break;
+   }
+   if(all.length>=max)throw Error('共用代墊紀錄已達讀取上限，為避免結算不完整已停止計算。');
+   return all;
+  })();
+  const fundTask=req('GET','trip_fund_transactions?select=id,transaction_type,amount_jpy,description,created_at&order=created_at.desc,id.desc&limit=5000').then(f=>{
+   if(!Array.isArray(f))throw Error('公積金格式不正確');
+   if(f.some(x=>!['deposit','expense'].includes(x.transaction_type)||!Number.isFinite(Number(x.amount_jpy))||Number(x.amount_jpy)<=0))throw Error('公積金存在無效交易類型或金額，已停止計算餘額');
+   if(f.length>=5000)throw Error('公積金紀錄達讀取上限，已停止計算餘額');
+   return f;
+  });
+  const settlementTask=(async()=>{
    const auth=JSON.parse(localStorage.getItem(STORE)||'null');
    const id=auth?.user_id;
-   const map=await req('GET','trip_expense_member_slots?select=auth_user_id,slot&auth_user_id=eq.'+encodeURIComponent(id)+'&limit=1');
-   mySlot=Number(map?.[0]?.slot||0);
-   const confirmations=await req('GET','trip_settlement_confirmations?select=payer_slot,payee_slot,ledger_key,amount_cents,payer_confirmed_at,payee_confirmed_at&limit=5000');
+   if(!id)throw Error('找不到目前的家人身分');
+   const [map,confirmations]=await Promise.all([
+    req('GET','trip_expense_member_slots?select=auth_user_id,slot&auth_user_id=eq.'+encodeURIComponent(id)+'&limit=1'),
+    req('GET','trip_settlement_confirmations?select=payer_slot,payee_slot,ledger_key,amount_cents,payer_confirmed_at,payee_confirmed_at&limit=5000')
+   ]);
    if(!Array.isArray(confirmations)||confirmations.length>=5000)throw Error('付款確認紀錄無法完整讀取');
-   paidRecords=confirmations;paidAvailable=true;
-  }catch(e){paidIssue=String(e.message||e)}
-  ready=true;lastLoad=Date.now();display();status('✓ 已讀取 '+rows.length+' 筆既有共用代墊紀錄'+(fundReady?'，及 '+fund.length+' 筆公積金收支。':'；⚠️ 公積金尚未啟用：'+issue));
+   return {slot:Number(map?.[0]?.slot||0),confirmations};
+  })();
+  const [expensesResult,fundResult,settlementResult]=await Promise.allSettled([expensesTask,fundTask,settlementTask]);
+  if(expensesResult.status!=='fulfilled')throw expensesResult.reason;
+  rows=expensesResult.value;
+  fundReady=fundResult.status==='fulfilled';fund=fundReady?fundResult.value:[];
+  fundIssue=fundReady?'':String(fundResult.reason?.message||fundResult.reason);
+  paidAvailable=settlementResult.status==='fulfilled';
+  paidRecords=paidAvailable?settlementResult.value.confirmations:[];
+  mySlot=paidAvailable?settlementResult.value.slot:0;
+  paidIssue=paidAvailable?'':String(settlementResult.reason?.message||settlementResult.reason);
+  ready=true;lastLoad=Date.now();display();
+  status('✓ 已讀取 '+rows.length+' 筆共用代墊紀錄'+(fundReady?'，'+fund.length+' 筆公積金紀錄':'；⚠️ 公積金讀取失敗')+(paidAvailable?'':'；付款確認尚未啟用'));
  }
  async function run(fn){
   if(busy){status('另一筆雲端操作正在進行，請先確認上一筆結果，避免重複記帳。');return}
