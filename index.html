@@ -1447,14 +1447,16 @@ document.addEventListener('change',async event=>{
   const received=demoMode?simulated.payee:!!rec?.payee_confirmed_at;
   const done=paid&&received;
   if(history)return '';
-  const label=done?'✓ 已結清':paid?'待收款人確認':received?'待付款人確認':'';
-  const dropdown=(role,checked)=>{
-   const roleText=role==='payer'?'付款':'收款';
-   if(!demoMode&&(!paidAvailable||mySlot!==(role==='payer'?from+1:to+1)))return '';
-   const attrs=demoMode?'data-demo-settlement="1"':'data-payment-settlement="1"';
-   return '<select class="field" aria-label="'+(demoMode?'模擬':'')+roleText+'狀態" style="font-size:12px;max-width:136px;min-width:112px;padding:7px 5px;margin:0" '+attrs+' data-settlement-from="'+from+'" data-settlement-to="'+to+'" data-settlement-cents="'+cents+'" data-settlement-role="'+role+'"><option value="pending"'+(!checked?' selected':'')+'>'+(demoMode?'模擬：':'')+'未'+roleText+'</option><option value="confirmed"'+(checked?' selected':'')+'>'+(demoMode?'模擬：':'')+'已'+roleText+'</option></select>';
+  const label=done?'✓ 已結清':paid?'待收款人確認':'';
+  const dropdown=()=>{
+   if(!demoMode&&(!paidAvailable||mySlot!==from+1))return '';
+   return '<select class="field" aria-label="付款狀態" style="font-size:12px;max-width:136px;min-width:112px;padding:7px 5px;margin:0" '+(demoMode?'data-demo-settlement="1"':'data-payment-settlement="1"')+' data-settlement-from="'+from+'" data-settlement-to="'+to+'" data-settlement-cents="'+cents+'" data-settlement-role="payer"><option value="pending"'+(!paid?' selected':'')+'>'+(demoMode?'模擬：':'')+'未付款</option><option value="confirmed"'+(paid?' selected':'')+'>'+(demoMode?'模擬：':'')+'已付款</option></select>';
   };
-  const control=demoMode?dropdown('payer',paid)+dropdown('payee',received):dropdown(mySlot===from+1?'payer':'payee',mySlot===from+1?paid:received);
+  const receiptCheck=()=>{
+   if(!paid||(!demoMode&&(!paidAvailable||mySlot!==to+1)))return '';
+   return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap;cursor:pointer"><input type="checkbox" style="width:17px;height:17px;accent-color:#36766b" '+(received?'checked ':'')+(demoMode?'data-demo-settlement="1"':'data-payment-settlement="1"')+' data-settlement-from="'+from+'" data-settlement-to="'+to+'" data-settlement-cents="'+cents+'" data-settlement-role="payee"> '+(demoMode?'模擬：':'')+'確認已收款</label>';
+  };
+  const control=demoMode?dropdown()+receiptCheck():mySlot===from+1?dropdown():receiptCheck();
   const strike=done?'text-decoration:line-through;text-decoration-color:#9aa6a1;':'';
   return '<div style="padding:10px 0;border-bottom:1px solid rgba(128,128,128,.16)"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div style="min-width:130px;flex:1"><div style="'+strike+'">'+expenseNickname(from)+' → '+expenseNickname(to)+'</div><b style="white-space:nowrap;'+strike+'">'+moneyTwd(amount)+'</b><div class="muted" style="font-size:11px;'+(done?'color:#27815b;':'')+'">'+label+'</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">'+control+'</div></div></div>';
  }
@@ -1564,7 +1566,7 @@ document.addEventListener('change',async event=>{
   const select=e.target.closest('[data-demo-settlement],[data-payment-settlement]');
   if(!select)return;
   const from=Number(select.dataset.settlementFrom),to=Number(select.dataset.settlementTo),cents=Number(select.dataset.settlementCents);
-  const role=select.dataset.settlementRole,checked=select.value==='confirmed';
+  const role=select.dataset.settlementRole,checked=select.type==='checkbox'?select.checked:select.value==='confirmed';
   if(select.hasAttribute('data-demo-settlement')){
    if(!demoMode)return;
    const key=demoKey(from,to,cents),prev=demoChecks.get(key)||{payer:false,payee:false};
