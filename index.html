@@ -1447,17 +1447,16 @@ document.addEventListener('change',async event=>{
   const received=demoMode?simulated.payee:!!rec?.payee_confirmed_at;
   const done=paid&&received;
   if(history)return '';
-  const name=i=>expenseNickname(i);
-  const label=done?'✓ 已結清':paid?'✓ 已確認付款，等待收款人確認':received?'✓ 已確認收款，等待付款人確認':'尚未確認付款／收款';
-  const button=(role,checked)=>{
-   const text=checked?'↩ 取消'+(role==='payer'?'付款':'收款')+'確認':'確認已'+(role==='payer'?'付款':'收款');
-   const base='type="button" class="btn secondary" style="font-size:12px;padding:5px 9px;margin-top:6px"';
-   if(demoMode)return '<button '+base+' data-demo-from="'+from+'" data-demo-to="'+to+'" data-demo-cents="'+cents+'" data-demo-role="'+role+'">'+(checked?'↩ 模擬取消'+(role==='payer'?'付款':'收款')+'確認':'模擬：'+text)+'</button>';
-   if(!paidAvailable||mySlot!==(role==='payer'?from+1:to+1))return '';
-   return '<button '+base+' data-payment-from="'+(from+1)+'" data-payment-to="'+(to+1)+'" data-payment-cents="'+cents+'" data-payment-confirm="'+(!checked)+'">'+text+'</button>';
+  const label=done?'✓ 已結清':paid?'付款已確認，待收款確認':received?'收款已確認，待付款確認':'尚未確認';
+  const dropdown=(role,checked)=>{
+   const roleText=role==='payer'?'付款':'收款';
+   if(!demoMode&&(!paidAvailable||mySlot!==(role==='payer'?from+1:to+1)))return '';
+   const attrs=demoMode?'data-demo-settlement="1"':'data-payment-settlement="1"';
+   return '<select class="field" aria-label="'+(demoMode?'模擬':'')+roleText+'狀態" style="font-size:12px;max-width:136px;min-width:112px;padding:7px 5px;margin:0" '+attrs+' data-settlement-from="'+from+'" data-settlement-to="'+to+'" data-settlement-cents="'+cents+'" data-settlement-role="'+role+'"><option value="pending"'+(!checked?' selected':'')+'>'+(demoMode?'模擬：':'')+'尚未確認</option><option value="confirmed"'+(checked?' selected':'')+'>'+(demoMode?'模擬：':'')+'已確認'+roleText+'</option></select>';
   };
+  const control=demoMode?dropdown('payer',paid)+dropdown('payee',received):dropdown(mySlot===from+1?'payer':'payee',mySlot===from+1?paid:received);
   const strike=done?'text-decoration:line-through;text-decoration-color:#9aa6a1;':'';
-  return '<div style="padding:11px 0;border-bottom:1px solid rgba(128,128,128,.16)"><div class="row" style="align-items:center;gap:12px"><span style="'+strike+'">'+name(from)+' → '+name(to)+'</span><b style="white-space:nowrap;'+strike+'">'+moneyTwd(amount)+'</b></div><div class="row" style="align-items:center;gap:8px;margin-top:3px"><span class="muted" style="font-size:12px;'+(done?'color:#27815b;':'')+'">'+label+'</span>'+button('payer',paid)+button('payee',received)+'</div></div>';
+  return '<div style="padding:10px 0;border-bottom:1px solid rgba(128,128,128,.16)"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div style="min-width:130px;flex:1"><div style="'+strike+'">'+expenseNickname(from)+' → '+expenseNickname(to)+'</div><b style="white-space:nowrap;'+strike+'">'+moneyTwd(amount)+'</b><div class="muted" style="font-size:11px;'+(done?'color:#27815b;':'')+'">'+label+'</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">'+control+'</div></div></div>';
  }
  function settlementSummary(){
   const net=Array(9).fill(0),direct=Array.from({length:9},()=>Array(9).fill(0));
@@ -1561,6 +1560,24 @@ document.addEventListener('change',async event=>{
   try{await fn()}catch(e){status('⚠️ 帳本讀取失敗：'+String(e.message||e).slice(0,200)+'。請點「更新帳本」重試。');const p=el('cloud-expense-panel');if(p&&!ready){p.classList.remove('hidden');p.innerHTML='<p class="muted">目前無法顯示雲端帳本，原始紀錄沒有被刪除。</p>';}}
   finally{busy=false;buttons.forEach(b=>{if(b.isConnected)b.disabled=false})}
  }
+ document.addEventListener('change',e=>{
+  const select=e.target.closest('[data-demo-settlement],[data-payment-settlement]');
+  if(!select)return;
+  const from=Number(select.dataset.settlementFrom),to=Number(select.dataset.settlementTo),cents=Number(select.dataset.settlementCents);
+  const role=select.dataset.settlementRole,checked=select.value==='confirmed';
+  if(select.hasAttribute('data-demo-settlement')){
+   if(!demoMode)return;
+   const key=demoKey(from,to,cents),prev=demoChecks.get(key)||{payer:false,payee:false};
+   demoChecks.set(key,{...prev,[role]:checked});display();return;
+  }
+  if(demoMode||!paidAvailable||mySlot!==(role==='payer'?from+1:to+1)){display();return}
+  const prompt=checked?'請確認你確實已'+(role==='payer'?'付款':'收到款項')+'。確定後會記錄到正式共用帳本，雙方都確認才會結清。':'確定取消自己在正式帳本上的'+(role==='payer'?'付款':'收款')+'確認？';
+  if(!confirm(prompt)){display();return}
+  void run(async()=>{
+   await req('POST','rpc/set_trip_settlement_confirmation',{p_payer:from+1,p_payee:to+1,p_ledger_key:settlementLedgerKey(),p_amount_cents:cents,p_confirm:checked});
+   await load();
+  });
+ });
  document.addEventListener('change',e=>{
   if(e.target.id==='settlement-person-select'){if(e.target.value)sessionStorage.setItem('miyako_settlement_person',e.target.value);else sessionStorage.removeItem('miyako_settlement_person');display();return;}
   if(e.target.id==='expense-view-rate'){
