@@ -1409,6 +1409,22 @@ document.addEventListener('change',async event=>{
 
  const membersOf=x=>Array.isArray(x.members)?[...new Set(x.members.map(Number))]:[];
  
+
+ let paidRecords=[],paidAvailable=false,paidIssue='',mySlot=0;
+ const settlementLedgerKey=()=>{
+  const data=rows.map(x=>[x.id,x.amount,x.currency,x.rate,x.exchange_rate,x.payer,membersOf(x).sort((a,b)=>a-b).join(',')].join('|')).sort().join(';');
+  let h=2166136261;for(let i=0;i<data.length;i++)h=Math.imul(h^data.charCodeAt(i),16777619);
+  return 'v1-'+rows.length+'-'+(h>>>0).toString(16);
+ };
+ function paymentItem(from,to,amount,history=false){
+  const cents=Math.round(amount*100),rec=paidRecords.find(x=>x.payer_slot===from+1&&x.payee_slot===to+1&&x.ledger_key===settlementLedgerKey()&&Number(x.amount_cents)===cents);
+  const paid=!!rec?.payer_confirmed_at,received=!!rec?.payee_confirmed_at,done=paid&&received;
+  if(done!==history)return '';
+  const name=i=>safe(document.querySelector('#approved-payer-select option[value="'+(i+1)+'"]')?.textContent?.trim()||'家人 '+(i+1));
+  const status=done?'✓ 雙方已確認':paid?'待收款人確認':received?'待付款人確認':'尚未確認';
+  const button=(role,checked)=>!paidAvailable||mySlot!==(role==='payer'?from+1:to+1)?'':'<button type="button" class="btn secondary" style="font-size:12px;padding:6px 9px" data-payment-from="'+(from+1)+'" data-payment-to="'+(to+1)+'" data-payment-cents="'+cents+'" data-payment-confirm="'+(!checked)+'">'+(checked?'↩ 取消確認':role==='payer'?'✓ 我已付款':'✓ 我已收款')+'</button>';
+  return '<div class="expense"><div class="row"><span>'+name(from)+' → '+name(to)+'</span><b>'+moneyTwd(amount)+'</b></div><p class="muted">'+status+'</p>'+button('payer',paid)+button('payee',received)+'</div>';
+ }
  function settlementSummary(){
   const net=Array(9).fill(0),direct=Array.from({length:9},()=>Array(9).fill(0));
   for(const x of rows){
@@ -1428,7 +1444,7 @@ document.addEventListener('change',async event=>{
    if(amount>0){transfers.push('家人 '+(i+1)+' → 家人 '+(j+1)+'：'+moneyTwd(amount/100));byPayer[i].push({to:j,amount:amount/100});}
    else if(amount<0){transfers.push('家人 '+(j+1)+' → 家人 '+(i+1)+'：'+moneyTwd(-amount/100));byPayer[j].push({to:i,amount:-amount/100});}
   }
-  return '<h3>💸 家人代墊結算（'+viewCurrency+'）</h3><p class="muted">每人應收／應付為所有已參與費用的合併總額；公積金支出不會重複計入。JPY 為依顯示匯率折算的參考值。</p>'+cents.map((n,i)=>'<div class="row"><span>家人 '+(i+1)+'</span><b>'+(n>=0?'應收 ':'應付 ')+moneyTwd(Math.abs(n)/100)+'</b></div>').join('')+'<h4>👤 我的個人收付款明細</h4><p class="muted">選擇家人暱稱，即可查看自己要付給誰，以及誰需要付錢給自己。只列出自己實際參與的代墊費用（已抵銷雙向代墊）。</p><label class="label" for="settlement-person-select">查看哪位家人的付款清單</label><select class="field" id="settlement-person-select"><option value="">請選擇家人</option>'+Array.from({length:9},(_,i)=>'<option value="'+(i+1)+'"'+(Number(sessionStorage.getItem('miyako_settlement_person'))===i+1?' selected':'')+'>'+safe(document.querySelector('#approved-payer-select option[value="'+(i+1)+'"]')?.textContent?.trim()||'家人 '+(i+1))+'</option>').join('')+'</select><div id="settlement-person-result">'+(()=>{const selected=Number(sessionStorage.getItem('miyako_settlement_person'));if(!Number.isInteger(selected)||selected<1||selected>9)return '<p class="muted">選好家人後，這裡會列出應付款項。</p>';const entries=byPayer[selected-1];const incoming=byPayer.flatMap((list,from)=>list.filter(x=>x.to===selected-1).map(x=>({from,amount:x.amount})));const label=i=>safe(document.querySelector('#approved-payer-select option[value="'+(i+1)+'"]')?.textContent?.trim()||'家人 '+(i+1));return '<h4>📤 我要付給誰？</h4><p><b>'+label(selected-1)+'｜應付 '+entries.length+' 筆，合計 '+moneyTwd(entries.reduce((n,x)=>n+x.amount,0))+'</b></p>'+(entries.length?entries.map(x=>'<div class="row"><span>付給 '+label(x.to)+'</span><b>'+moneyTwd(x.amount)+'</b></div>').join(''):'<p class="muted">目前沒有需要付款給其他家人的代墊款。</p>')+'<h4>📥 誰需要付錢給我？</h4><p><b>'+label(selected-1)+'｜應收 '+incoming.length+' 筆，合計 '+moneyTwd(incoming.reduce((n,x)=>n+x.amount,0))+'</b></p>'+(incoming.length?incoming.map(x=>'<div class="row"><span>'+label(x.from)+' 要付給我</span><b>'+moneyTwd(x.amount)+'</b></div>').join(''):'<p class="muted">目前沒有其他家人需要付給你的代墊款。</p>');})()+'</div><details><summary>查看全部家人的建議轉帳</summary><p class="muted">僅供對帳；沒參與某筆費用的家人不會因該筆費用欠代墊者。</p>'+(transfers.length?transfers.map(x=>'<p class="muted">'+safe(x)+'</p>').join(''):'<p class="muted">沒有需要結算的個人代墊。</p>')+'</details>';
+  return '<h3>💸 家人代墊結算（'+viewCurrency+'）</h3><p class="muted">每人應收／應付為所有已參與費用的合併總額；公積金支出不會重複計入。JPY 為依顯示匯率折算的參考值。</p>'+cents.map((n,i)=>'<div class="row"><span>家人 '+(i+1)+'</span><b>'+(n>=0?'應收 ':'應付 ')+moneyTwd(Math.abs(n)/100)+'</b></div>').join('')+'<h4>👤 我的個人收付款明細</h4>'+(paidAvailable?'':'<p class="muted">⚠️ 雙方付款確認尚未啟用；需先安裝 Supabase 付款確認資料表。'+safe(paidIssue)+'</p>')<p class="muted">選擇家人暱稱，即可查看自己要付給誰，以及誰需要付錢給自己。只列出自己實際參與的代墊費用（已抵銷雙向代墊）。</p><label class="label" for="settlement-person-select">查看哪位家人的付款清單</label><select class="field" id="settlement-person-select"><option value="">請選擇家人</option>'+Array.from({length:9},(_,i)=>'<option value="'+(i+1)+'"'+(Number(sessionStorage.getItem('miyako_settlement_person'))===i+1?' selected':'')+'>'+safe(document.querySelector('#approved-payer-select option[value="'+(i+1)+'"]')?.textContent?.trim()||'家人 '+(i+1))+'</option>').join('')+'</select><div id="settlement-person-result">'+(()=>{const selected=Number(sessionStorage.getItem('miyako_settlement_person'));if(!Number.isInteger(selected)||selected<1||selected>9)return '<p class="muted">選好家人後，這裡會列出應付款項。</p>';const entries=byPayer[selected-1];const incoming=byPayer.flatMap((list,from)=>list.filter(x=>x.to===selected-1).map(x=>({from,amount:x.amount})));const label=i=>safe(document.querySelector('#approved-payer-select option[value="'+(i+1)+'"]')?.textContent?.trim()||'家人 '+(i+1));return '<h4>📤 我要付給誰？</h4><p><b>'+label(selected-1)+'｜應付 '+entries.length+' 筆，合計 '+moneyTwd(entries.reduce((n,x)=>n+x.amount,0))+'</b></p>'+(entries.length?entries.map(x=>paymentItem(selected-1,x.to,x.amount)).join('')||'<p class="muted">沒有待付款項。</p>':'<p class="muted">目前沒有需要付款給其他家人的代墊款。</p>')+'<h4>📥 誰需要付錢給我？</h4><p><b>'+label(selected-1)+'｜應收 '+incoming.length+' 筆，合計 '+moneyTwd(incoming.reduce((n,x)=>n+x.amount,0))+'</b></p>'+(incoming.length?incoming.map(x=>paymentItem(x.from,selected-1,x.amount)).join('')||'<p class="muted">沒有待收款項。</p>':'<p class="muted">目前沒有其他家人需要付給你的代墊款。</p>')+'<details><summary>✓ 已完成紀錄</summary>'+(entries.map(x=>paymentItem(selected-1,x.to,x.amount,true)).join('')+incoming.map(x=>paymentItem(x.from,selected-1,x.amount,true)).join('')||'<p class="muted">尚無已完成紀錄。</p>')+'</details>';})()+'</div><details><summary>查看全部家人的建議轉帳</summary><p class="muted">僅供對帳；沒參與某筆費用的家人不會因該筆費用欠代墊者。</p>'+(transfers.length?transfers.map(x=>'<p class="muted">'+safe(x)+'</p>').join(''):'<p class="muted">沒有需要結算的個人代墊。</p>')+'</details>';
  }
  function display(){
   const panel=el('cloud-expense-panel'),list=el('cloud-expense-list');if(!panel||!list)return;
@@ -1469,6 +1485,17 @@ document.addEventListener('change',async event=>{
   rows=all;fundReady=false;let issue='';
   try{const f=await req('GET','trip_fund_transactions?select=id,transaction_type,amount_jpy,description,created_at&order=created_at.desc,id.desc&limit=5000');if(!Array.isArray(f))throw Error('公積金格式不正確');if(f.some(x=>!['deposit','expense'].includes(x.transaction_type)||!Number.isFinite(Number(x.amount_jpy))||Number(x.amount_jpy)<=0))throw Error('公積金存在無效交易類型或金額，已停止計算餘額');if(f.length>=5000)throw Error('公積金紀錄達讀取上限，已停止計算餘額；請先確認完整帳本。');fund=f;fundReady=true;}catch(e){fund=[];issue=e.message||String(e)}
   fundIssue=issue;
+  paidRecords=[];paidAvailable=false;paidIssue='';mySlot=0;
+  try{
+   const t=await token();
+   const auth=JSON.parse(localStorage.getItem(STORE)||'null');
+   const id=auth?.user_id;
+   const map=await req('GET','trip_expense_member_slots?select=auth_user_id,slot&auth_user_id=eq.'+encodeURIComponent(id)+'&limit=1');
+   mySlot=Number(map?.[0]?.slot||0);
+   const confirmations=await req('GET','trip_settlement_confirmations?select=payer_slot,payee_slot,ledger_key,amount_cents,payer_confirmed_at,payee_confirmed_at&limit=5000');
+   if(!Array.isArray(confirmations)||confirmations.length>=5000)throw Error('付款確認紀錄無法完整讀取');
+   paidRecords=confirmations;paidAvailable=true;
+  }catch(e){paidIssue=String(e.message||e)}
   ready=true;lastLoad=Date.now();display();status('✓ 已讀取 '+rows.length+' 筆既有共用代墊紀錄'+(fundReady?'，及 '+fund.length+' 筆公積金收支。':'；⚠️ 公積金尚未啟用：'+issue));
  }
  async function run(fn){
@@ -1501,6 +1528,19 @@ document.addEventListener('change',async event=>{
    viewCurrency=e.target.closest('#expense-view-twd')?'TWD':'JPY';
    localStorage.setItem('miyako_expense_view_currency',viewCurrency);
    display();return;
+  }
+  const payment=e.target.closest('[data-payment-from]');
+  if(payment){
+   if(!paidAvailable)return alert('付款同步尚未啟用：'+paidIssue);
+   if(!confirm(payment.dataset.paymentConfirm==='true'?'確認這筆付款／收款已完成？需雙方確認才會移到已完成紀錄。':'要取消自己的付款確認嗎？'))return;
+   return run(async()=>{
+    await req('POST','rpc/set_trip_settlement_confirmation',{
+     p_payer:Number(payment.dataset.paymentFrom),p_payee:Number(payment.dataset.paymentTo),
+     p_ledger_key:settlementLedgerKey(),p_amount_cents:Number(payment.dataset.paymentCents),
+     p_confirm:payment.dataset.paymentConfirm==='true'
+    });
+    await load();
+   });
   }
   if(e.target.closest('#cloud-expense-load'))return run(load);
   const a=e.target.closest('[data-cloud-expense-delete]');if(a){if(!confirm('刪除這筆雲端代墊？僅建立者有權刪除。'))return;return run(async()=>{const removed=await req('DELETE','trip_expenses?id=eq.'+encodeURIComponent(a.dataset.cloudExpenseDelete)+'&select=id');if(!Array.isArray(removed)||removed.length!==1)throw Error('未刪除紀錄：請檢查建立者權限');await load()})}
