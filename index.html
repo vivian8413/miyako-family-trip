@@ -1452,7 +1452,7 @@ document.addEventListener('change',async event=>{
    const roleText=role==='payer'?'付款':'收款';
    if(!demoMode&&(!paidAvailable||mySlot!==(role==='payer'?from+1:to+1)))return '';
    const attrs=demoMode?'data-demo-settlement="1"':'data-payment-settlement="1"';
-   return '<select class="field" aria-label="'+(demoMode?'模擬':'')+roleText+'狀態" style="font-size:12px;max-width:136px;min-width:112px;padding:7px 5px;margin:0" '+attrs+' data-settlement-from="'+from+'" data-settlement-to="'+to+'" data-settlement-cents="'+cents+'" data-settlement-role="'+role+'"><option value="pending"'+(!checked?' selected':'')+'>'+(demoMode?'模擬：':'')+'尚未確認</option><option value="confirmed"'+(checked?' selected':'')+'>'+(demoMode?'模擬：':'')+'已確認'+roleText+'</option></select>';
+   return '<select class="field" aria-label="'+(demoMode?'模擬':'')+roleText+'狀態" style="font-size:12px;max-width:136px;min-width:112px;padding:7px 5px;margin:0" '+attrs+' data-settlement-from="'+from+'" data-settlement-to="'+to+'" data-settlement-cents="'+cents+'" data-settlement-role="'+role+'"><option value="pending"'+(!checked?' selected':'')+'>'+(demoMode?'模擬：':'')+'尚未確認</option><option value="confirmed"'+(checked?' selected':'')+'>'+(demoMode?'模擬：':'')+'已'+roleText+'</option></select>';
   };
   const control=demoMode?dropdown('payer',paid)+dropdown('payee',received):dropdown(mySlot===from+1?'payer':'payee',mySlot===from+1?paid:received);
   const strike=done?'text-decoration:line-through;text-decoration-color:#9aa6a1;':'';
