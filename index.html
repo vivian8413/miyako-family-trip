@@ -798,7 +798,7 @@ function expenses(){
  <div id="fund-contributions" class="muted"></div></div>
  <div class="card"><div class="label">📊 累計旅行總支出（公積金支出＋家人代墊）</div><div class="big-num" id="expense-total-spent">—</div><p class="muted" id="expense-total-note">待兩份帳本完整讀取後計算，不包含公積金繳納。</p></div>
  <div class="card"><h3>＋ 新增共用費用</h3><form id="cloud-expense-form"><input class="field" name="description" maxlength="100" required placeholder="例如：燒肉晚餐"><div class="row"><input class="field" type="number" name="amount" min="0.01" step="0.01" required placeholder="金額"><select class="field" name="currency"><option value="JPY">JPY 日幣</option><option value="TWD">TWD 台幣</option></select></div><label class="label">1 JPY 換算 TWD</label><input class="field" type="number" name="rate" min="0.0001" step="0.0001" value="${state.rate}" required><label class="label">付款方式</label><select class="field" name="source" id="expense-payment-source"><option value="personal">🙋 家人代墊</option><option value="fund">🏦 日幣公積金支付</option></select><div id="expense-payer-box"><label class="label">代墊者</label><select class="field" name="payer" id="approved-payer-select" required><option value="">正在取得已核准家人暱稱…</option></select><p class="muted" id="approved-payer-status" role="status">代墊者必須先確認對應的原有家人編號，避免把舊帳算到其他人。</p></div><p class="muted">實際分攤成員（預設九人全選）</p><div class="tiles" style="grid-template-columns:repeat(3,1fr);gap:5px">${Array.from({length:9},(_,i)=>`<label class="check" style="border:0;padding:5px;font-size:12px"><input name="member" type="checkbox" value="${i+1}" checked>家人 ${i+1}</label>`).join('')}</div><p class="muted">公積金付款只接受日幣；支出記在公積金總帳，不會再次計入個人代墊結算。資料庫防超支保護已於 11/1 設定；實際多人同時操作仍未驗證。現有公積金資料表未儲存結構化分攤人員，會把選取的人寫在描述文字中。</p><button class="btn full" type="submit">☁️ 儲存九人共用費用</button></form></div>
- <div class="card"><div class="row"><h3>📋 共用收支紀錄 <small id="expense-list-currency" class="muted"></small></h3><button type="button" id="cloud-expense-load" class="btn secondary">🔄 更新帳本</button></div><p id="cloud-expense-status" class="muted" role="status">準備讀取雲端共用帳本…</p><div id="cloud-expense-panel" class="hidden"><div id="cloud-expense-list"></div></div></div>
+ <div class="card"><div class="row"><h3>📋 共用收支紀錄 <small id="expense-list-currency" class="muted"></small></h3><button type="button" id="cloud-expense-load" class="btn secondary">🔄 更新帳本</button></div><p id="cloud-expense-status" class="muted" role="status">帳本版本 11/14-B｜等待連線（若持續顯示請點「更新帳本」）</p><div id="cloud-expense-panel" class="hidden"><div id="cloud-expense-list"></div></div></div>
  <details class="card"><summary>🗃️ 舊本機費用備份（${backupCount} 筆，保留但不計入雲端結算）</summary><p class="muted">這是之前單手機版本的資料，不會自動合併進九人雲端，避免重複入帳。</p><button class="btn secondary full" id="expense-export" type="button">⬇️ 匯出本機費用 JSON</button><label class="label" for="expense-import">📂 從 JSON 還原舊本機資料</label><input class="field" id="expense-import" type="file" accept=".json,application/json"><p id="expense-backup-status" class="muted"></p></details>`;
 }
 function settlementSuggestions(){
@@ -1599,12 +1599,18 @@ document.addEventListener('change',async event=>{
  });
  // Explicit page-render signal prevents the expense screen from waiting forever
  // if a navigation replaced its DOM while the observer was attached.
+ // Backup direct click trigger independent of the original expense click handler.
+ document.addEventListener('click',e=>{
+  if(!e.target.closest('#cloud-expense-load'))return;
+  if(!busy)void run(load);
+ },true);
  document.addEventListener('miyako-page-rendered',e=>{
   if(e.detail?.page!=='expenses')return;
   const panel=el('cloud-expense-panel');
   if(!panel)return;
   observedPanel=panel;
   if(ready)display();
+  status('帳本版本 11/14-B｜正在連線…');
   if(!busy&&(!ready||Date.now()-lastLoad>30000))void run(load);
  });
  // Only refresh upon navigating back after 30s; never wipe or replay existing entries.
