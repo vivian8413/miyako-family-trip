@@ -1419,12 +1419,12 @@ document.addEventListener('change',async event=>{
  function paymentItem(from,to,amount,history=false){
   const cents=Math.round(amount*100),rec=paidRecords.find(x=>x.payer_slot===from+1&&x.payee_slot===to+1&&x.ledger_key===settlementLedgerKey()&&Number(x.amount_cents)===cents);
   const paid=!!rec?.payer_confirmed_at,received=!!rec?.payee_confirmed_at,done=paid&&received;
-  // Keep settled transfers visible in place; only style them as completed.
   if(history)return '';
   const name=i=>safe(document.querySelector('#approved-payer-select option[value="'+(i+1)+'"]')?.textContent?.trim()||'家人 '+(i+1));
-  const status=done?'✓ 雙方已確認':paid?'待收款人確認':received?'待付款人確認':'尚未確認';
-  const button=(role,checked)=>!paidAvailable||mySlot!==(role==='payer'?from+1:to+1)?'':'<button type="button" class="btn secondary" style="font-size:12px;padding:6px 9px" data-payment-from="'+(from+1)+'" data-payment-to="'+(to+1)+'" data-payment-cents="'+cents+'" data-payment-confirm="'+(!checked)+'">'+(checked?'↩ 取消確認':role==='payer'?'✓ 我已付款':'✓ 我已收款')+'</button>';
-  return '<div class="expense" style="'+(done?'opacity:.65;':'')+'"><div class="row" style="'+(done?'text-decoration:line-through;text-decoration-thickness:1.5px;':'')+'"><span>'+name(from)+' → '+name(to)+'</span><b>'+moneyTwd(amount)+'</b></div><p class="muted">'+(done?'✓ 已結清（雙方確認）':status)+'</p>'+button('payer',paid)+button('payee',received)+'</div>';
+  const label=done?'✓ 已結清':paid?'等待收款人確認':received?'等待付款人確認':'尚未確認';
+  const button=(role,checked)=>!paidAvailable||mySlot!==(role==='payer'?from+1:to+1)?'':'<button type="button" class="btn secondary" style="font-size:12px;padding:5px 9px;margin-top:6px" data-payment-from="'+(from+1)+'" data-payment-to="'+(to+1)+'" data-payment-cents="'+cents+'" data-payment-confirm="'+(!checked)+'">'+(checked?'↩ 取消確認':role==='payer'?'✓ 我已付款':'✓ 我已收款')+'</button>';
+  const strike=done?'text-decoration:line-through;text-decoration-color:#9aa6a1;':'';
+  return '<div style="padding:11px 0;border-bottom:1px solid rgba(128,128,128,.16)"><div class="row" style="align-items:center;gap:12px"><span style="'+strike+'">'+name(from)+' → '+name(to)+'</span><b style="white-space:nowrap;'+strike+'">'+moneyTwd(amount)+'</b></div><div class="row" style="align-items:center;gap:8px;margin-top:3px"><span class="muted" style="font-size:12px;'+(done?'color:#27815b;':'')+'">'+label+'</span>'+button('payer',paid)+button('payee',received)+'</div></div>';
  }
  function settlementSummary(){
   const net=Array(9).fill(0),direct=Array.from({length:9},()=>Array(9).fill(0));
