@@ -1577,6 +1577,13 @@ document.addEventListener('change',async event=>{
   if(!confirm(prompt)){display();return}
   void run(async()=>{
    await req('POST','rpc/set_trip_settlement_confirmation',{p_payer:from+1,p_payee:to+1,p_ledger_key:settlementLedgerKey(),p_amount_cents:cents,p_confirm:checked});
+   if(role==='payer'&&checked){
+    try{
+     const recipients=await req('GET','trip_expense_member_slots?select=auth_user_id&slot=eq.'+(to+1)+'&limit=1');
+     const recipient=recipients?.[0]?.auth_user_id;
+     if(recipient)await req('POST','family_app_notifications',{recipient_user_id:recipient,title:'付款待確認',detail:expenseNickname(from)+' 已標記付款 NT$'+Math.ceil(cents/100-1e-9).toLocaleString('zh-TW')+' 給你，請確認是否收到款項。'});
+    }catch(err){console.warn('付款已記錄，但通知未送出',err);alert('付款已儲存，但收款通知未成功送出，請提醒收款人到費用頁確認。');}
+   }
    await load();
   });
  });
@@ -3456,6 +3463,13 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
   if(!confirm(prompt)){display();return}
   void run(async()=>{
    await req('POST','rpc/set_trip_settlement_confirmation',{p_payer:from+1,p_payee:to+1,p_ledger_key:settlementLedgerKey(),p_amount_cents:cents,p_confirm:checked});
+   if(role==='payer'&&checked){
+    try{
+     const recipients=await req('GET','trip_expense_member_slots?select=auth_user_id&slot=eq.'+(to+1)+'&limit=1');
+     const recipient=recipients?.[0]?.auth_user_id;
+     if(recipient)await req('POST','family_app_notifications',{recipient_user_id:recipient,title:'付款待確認',detail:expenseNickname(from)+' 已標記付款 NT$'+Math.ceil(cents/100-1e-9).toLocaleString('zh-TW')+' 給你，請確認是否收到款項。'});
+    }catch(err){console.warn('付款已記錄，但通知未送出',err);alert('付款已儲存，但收款通知未成功送出，請提醒收款人到費用頁確認。');}
+   }
    await load();
   });
  });
@@ -5334,6 +5348,13 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
   if(!confirm(prompt)){display();return}
   void run(async()=>{
    await req('POST','rpc/set_trip_settlement_confirmation',{p_payer:from+1,p_payee:to+1,p_ledger_key:settlementLedgerKey(),p_amount_cents:cents,p_confirm:checked});
+   if(role==='payer'&&checked){
+    try{
+     const recipients=await req('GET','trip_expense_member_slots?select=auth_user_id&slot=eq.'+(to+1)+'&limit=1');
+     const recipient=recipients?.[0]?.auth_user_id;
+     if(recipient)await req('POST','family_app_notifications',{recipient_user_id:recipient,title:'付款待確認',detail:expenseNickname(from)+' 已標記付款 NT$'+Math.ceil(cents/100-1e-9).toLocaleString('zh-TW')+' 給你，請確認是否收到款項。'});
+    }catch(err){console.warn('付款已記錄，但通知未送出',err);alert('付款已儲存，但收款通知未成功送出，請提醒收款人到費用頁確認。');}
+   }
    await load();
   });
  });
@@ -7213,6 +7234,13 @@ if(el('wall-collage')){wallNode=el('wall-collage');load()}
   if(!confirm(prompt)){display();return}
   void run(async()=>{
    await req('POST','rpc/set_trip_settlement_confirmation',{p_payer:from+1,p_payee:to+1,p_ledger_key:settlementLedgerKey(),p_amount_cents:cents,p_confirm:checked});
+   if(role==='payer'&&checked){
+    try{
+     const recipients=await req('GET','trip_expense_member_slots?select=auth_user_id&slot=eq.'+(to+1)+'&limit=1');
+     const recipient=recipients?.[0]?.auth_user_id;
+     if(recipient)await req('POST','family_app_notifications',{recipient_user_id:recipient,title:'付款待確認',detail:expenseNickname(from)+' 已標記付款 NT$'+Math.ceil(cents/100-1e-9).toLocaleString('zh-TW')+' 給你，請確認是否收到款項。'});
+    }catch(err){console.warn('付款已記錄，但通知未送出',err);alert('付款已儲存，但收款通知未成功送出，請提醒收款人到費用頁確認。');}
+   }
    await load();
   });
  });
