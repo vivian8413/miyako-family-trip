@@ -1457,7 +1457,7 @@ document.addEventListener('change',async event=>{
    return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap;cursor:pointer"><input type="checkbox" style="width:17px;height:17px;accent-color:#36766b" '+(received?'checked ':'')+(demoMode?'data-demo-settlement="1"':'data-payment-settlement="1"')+' data-settlement-from="'+from+'" data-settlement-to="'+to+'" data-settlement-cents="'+cents+'" data-settlement-role="payee"> '+(demoMode?'模擬：':'')+'確認已收款</label>';
   };
   const viewingOwnList=Number(sessionStorage.getItem('miyako_settlement_person'))===mySlot;
-  const control=demoMode?dropdown()+receiptCheck():!viewingOwnList?'':mySlot===from+1?dropdown():receiptCheck();
+  const control=!viewingOwnList?'':demoMode?dropdown()+receiptCheck():mySlot===from+1?dropdown():receiptCheck();
   const strike=done?'text-decoration:line-through;text-decoration-color:#9aa6a1;':'';
   return '<div style="padding:10px 0;border-bottom:1px solid rgba(128,128,128,.16)"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div style="min-width:130px;flex:1"><div style="'+strike+'">'+expenseNickname(from)+' → '+expenseNickname(to)+'</div><b style="white-space:nowrap;'+strike+'">'+moneyTwd(amount)+'</b><div class="muted" style="font-size:11px;'+(done?'color:#27815b;':'')+'">'+label+'</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">'+control+'</div></div></div>';
  }
