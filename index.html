@@ -1390,8 +1390,8 @@ document.addEventListener('change',async event=>{
  const recordRate=x=>{const primary=Number(x.rate),fallback=Number(x.exchange_rate);return Number.isFinite(primary)&&primary>0?primary:(Number.isFinite(fallback)&&fallback>0?fallback:NaN)};
  const personalJpy=x=>{const n=Number(x.amount),rate=recordRate(x);return x.currency==='JPY'?n:(rate>0?n/rate:NaN)};
  const personalTwd=x=>{const n=Number(x.amount),rate=recordRate(x);return x.currency==='TWD'?n:(rate>0?n*rate:NaN)};
- const personalDisplay=x=>{const value=viewCurrency==='JPY'?personalJpy(x):personalTwd(x);return Number.isFinite(value)?viewCurrency==='JPY'?'¥'+value.toLocaleString('zh-TW',{maximumFractionDigits:2}):'NT:'匯率資料不完整'};
- const moneyTwd=twd=>viewCurrency==='TWD'?'NT:'¥'+(twd/viewRate).toLocaleString('zh-TW',{maximumFractionDigits:2});
+ const personalDisplay=x=>{const value=viewCurrency==='JPY'?personalJpy(x):personalTwd(x);return Number.isFinite(value)?viewCurrency==='JPY'?'¥'+value.toLocaleString('zh-TW',{maximumFractionDigits:2}):'NT$'+Math.ceil(value-1e-9).toLocaleString('zh-TW'):'匯率資料不完整'};
+ const moneyTwd=twd=>viewCurrency==='TWD'?'NT$'+Math.ceil(twd-1e-9).toLocaleString('zh-TW'):'¥'+(twd/viewRate).toLocaleString('zh-TW',{maximumFractionDigits:2});
 
  const el=id=>document.getElementById(id);
  const status=t=>{if(el('cloud-expense-status'))el('cloud-expense-status').textContent=t};
