@@ -1648,7 +1648,7 @@ document.addEventListener('change',async event=>{
    if(!Number.isFinite(proposed)||proposed<=0||proposed>10){alert('請輸入合理的正數匯率（1 JPY 等於多少 TWD）');e.target.value=String(viewRate);return;}
    viewRate=proposed;localStorage.setItem('miyako_expense_view_rate',String(viewRate));display();return;
   }
-  if(e.target.id==='expense-payment-source'){const fund=e.target.value==='fund';if(el('expense-payer-box'))el('expense-payer-box').classList.toggle('hidden',fund);const currency=el('cloud-expense-form')?.querySelector('[name=currency]');if(fund&&currency)currency.value='JPY';}});
+  if(e.target.id==='expense-payment-source'){const fund=e.target.value==='fund';if(el('expense-payer-box'))el('expense-payer-box').classList.toggle('hidden',fund);const payer=el('approved-payer-select');if(payer){payer.required=!fund;payer.disabled=fund;}const currency=el('cloud-expense-form')?.querySelector('[name=currency]');if(fund&&currency)currency.value='JPY';}});
  document.addEventListener('click',e=>{
   if(e.target.closest('#cloud-expense-edit-toggle')){ledgerEditMode=!ledgerEditMode;const button=el('cloud-expense-edit-toggle');if(button){button.textContent=ledgerEditMode?'✓ 完成':'✏️ 編輯';button.setAttribute('aria-pressed',String(ledgerEditMode))}document.querySelectorAll('[data-ledger-row-actions]').forEach(x=>x.style.display=ledgerEditMode?'inline':'none');return}
   if(e.target.closest('#fund-deposit-toggle')){
