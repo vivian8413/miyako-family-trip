@@ -1541,9 +1541,28 @@ document.addEventListener('change',async event=>{
   if(el('fund-readiness'))el('fund-readiness').textContent=fundReady?'☁️ 已連線昨天建立的公積金總帳；資料庫防超支觸發器已安裝，實際多人同時操作尚未驗證。':'⚠️ 無法連接既有公積金總帳；既有家人代墊紀錄仍可讀取。請確認登入與資料表權限。';
   if(el('fund-contributions'))el('fund-contributions').innerHTML=fundReady?'<p class="muted">目前資料表沒有獨立的繳納者欄位，公積金以總帳為準；新紀錄可在備註查看繳納者，舊紀錄不會猜測歸屬。</p>':'';
   const all=[...rows.map(x=>({...x,_kind:'personal'})),...fund.map(x=>({...x,_kind:x.transaction_type}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  const html=all.map(x=>{
+  const renderEntry=x=>{
    if(x._kind==='personal')return '<div class="expense"><div class="row"><b>'+safe(x.description)+'</b><b>'+personalDisplay(x)+'</b></div><p class="muted">原始 '+safe(x.currency)+' '+Number(x.amount).toLocaleString('zh-TW')+' · 🙋 家人 '+Number(x.payer)+' 代墊 · '+membersOf(x).length+' 人分攤</p><span data-ledger-row-actions style="display:'+(ledgerEditMode?'inline':'none')+'"><button class="btn secondary" type="button" data-cloud-expense-edit="'+safe(x.id)+'">編輯</button> <button class="btn danger" type="button" data-cloud-expense-delete="'+safe(x.id)+'">刪除</button></span></div>';
    return '<div class="expense"><div class="row"><b>'+safe(x.description)+'</b><b>'+money(Number(x.amount_jpy))+'</b></div><p class="muted">原始 ¥'+Number(x.amount_jpy).toLocaleString('zh-TW')+' · '+(x._kind==='deposit'?'🏦 公積金繳納':'🏦 公積金支付')+' · '+safe(new Date(x.created_at).toLocaleString('zh-TW'))+'</p><span data-ledger-row-actions style="display:'+(ledgerEditMode?'inline':'none')+'"><button class="btn secondary" type="button" data-fund-edit="'+safe(x.id)+'">編輯</button> <button class="btn danger" type="button" data-fund-delete="'+safe(x.id)+'">刪除</button></span></div>';
+  };
+  // Only group deposits with a recognizable collection-round label.
+  // The original transactions remain independent and editable.
+  const groupLabel=x=>{
+   if(x._kind!=='deposit')return '';
+   const description=String(x.description||'').replace(/^家人\\s*\\d+\\s*[｜|]\\s*/,'').replace(/^.*?\\s*[｜|]\\s*/,'').trim();
+   const m=description.match(/(?:\\d{1,2}\\s*[\\/／.-]\\s*\\d{1,2}\\s*)?第[一二三四五六七八九十\\d]+次(?:收|繳|繳納)?公積金/);
+   return m?m[0].replace(/\\s+/g,''):'';
+  };
+  const groups=new Map();
+  for(const x of all){const key=groupLabel(x);if(key){if(!groups.has(key))groups.set(key,[]);groups.get(key).push(x)}}
+  const emitted=new Set();
+  const html=all.map(x=>{
+   const key=groupLabel(x);
+   if(!key||groups.get(key).length<2)return renderEntry(x);
+   if(emitted.has(key))return '';
+   emitted.add(key);
+   const items=groups.get(key),sum=items.reduce((n,v)=>n+Number(v.amount_jpy),0);
+   return '<details class="card" style="margin:10px 0;padding:12px" data-fund-group="'+safe(key)+'"><summary style="cursor:pointer;list-style:revert"><b>🏦 '+safe(key)+'</b><span style="display:block;font-size:13px;color:#678079;margin-top:5px">'+items.length+' 筆繳納 · 合計 '+money(sum)+'（原始 ¥'+sum.toLocaleString('zh-TW')+'）</span><span style="font-size:12px;color:#678079">點選展開個別紀錄</span></summary><div style="padding-top:10px">'+items.map(renderEntry).join('')+'</div></details>';
   }).join('');
   list.innerHTML='<p class="muted">雲端代墊 '+rows.length+' 筆'+(fundReady?' · 公積金收支 '+fund.length+' 筆':' · 公積金未連線')+'</p>'+(html||'<p class="muted">目前還沒有共用費用紀錄。</p>')+'<div class="card">'+settlementSummary()+'</div>';
  }
