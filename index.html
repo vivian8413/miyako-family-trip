@@ -1668,7 +1668,21 @@ document.addEventListener('change',async event=>{
   }
   if(e.target.closest('#cloud-expense-load'))return run(load);
   const a=e.target.closest('[data-cloud-expense-delete]');if(a){if(!confirm('確定刪除這筆共用代墊？所有人的結算都會改變。'))return;return run(async()=>{const removed=await req('DELETE','trip_expenses?id=eq.'+encodeURIComponent(a.dataset.cloudExpenseDelete)+'&select=id');if(!Array.isArray(removed)||removed.length!==1)throw Error('未刪除紀錄：請檢查資料庫權限');await load()})}
-  const edit=e.target.closest('[data-cloud-expense-edit]');if(edit){const x=rows.find(x=>String(x.id)===edit.dataset.cloudExpenseEdit);if(!x)return;const description=prompt('修改費用名稱',x.description);if(description===null)return;const amountText=prompt('修改原始金額（'+x.currency+'）',String(x.amount));if(amountText===null)return;const amount=Number(amountText);if(!description.trim()||description.length>100||!Number.isFinite(amount)||amount<=0)return alert('名稱或金額無效');return run(async()=>{const result=await req('PATCH','trip_expenses?id=eq.'+encodeURIComponent(x.id)+'&select=id',{description:description.trim(),amount});if(!Array.isArray(result)||result.length!==1)throw Error('編輯未成功，請確認資料庫權限');await load()})}
+  const edit=e.target.closest('[data-cloud-expense-edit]');if(edit){
+   const x=rows.find(x=>String(x.id)===edit.dataset.cloudExpenseEdit);if(!x)return;
+   const description=prompt('修改費用名稱',x.description);if(description===null)return;
+   const amountText=prompt('修改原始金額',String(x.amount));if(amountText===null)return;
+   const currencyText=prompt('幣別：JPY 或 TWD',x.currency);if(currencyText===null)return;
+   const currency=currencyText.trim().toUpperCase();
+   const rateText=prompt('匯率：1 JPY 換算 TWD',String(recordRate(x)));if(rateText===null)return;
+   const payerText=prompt('代墊者編號（1～9）',String(x.payer));if(payerText===null)return;
+   const membersText=prompt('分攤家人編號，用逗號分隔，例如 1,2,3',membersOf(x).join(','));if(membersText===null)return;
+   const amount=Number(amountText),rate=Number(rateText),payer=Number(payerText);
+   const members=membersText.split(/[,，、\s]+/).filter(Boolean).map(Number);
+   if(!description.trim()||description.length>100||!Number.isFinite(amount)||amount<=0||!['JPY','TWD'].includes(currency)||!Number.isFinite(rate)||rate<=0||!Number.isInteger(payer)||payer<1||payer>9||!members.length||members.length>9||new Set(members).size!==members.length||members.some(n=>!Number.isInteger(n)||n<1||n>9))return alert('修改資料無效，請檢查金額、幣別、匯率、代墊者及分攤人員。');
+   if(!confirm('確定修改正式共用費用？所有家人的分帳與應收應付金額會重新計算。'))return;
+   return run(async()=>{const result=await req('PATCH','trip_expenses?id=eq.'+encodeURIComponent(x.id)+'&select=id',{description:description.trim(),amount,currency,rate,payer,members});if(!Array.isArray(result)||result.length!==1)throw Error('編輯未成功，請確認資料庫權限');await load()});
+  }
   const fe=e.target.closest('[data-fund-edit]');if(fe){const x=fund.find(x=>String(x.id)===fe.dataset.fundEdit);if(!x)return;const description=prompt('修改公積金備註',x.description);if(description===null)return;const amountText=prompt('修改日幣金額',String(x.amount_jpy));if(amountText===null)return;const amount=Number(amountText);if(!description.trim()||!Number.isSafeInteger(amount)||amount<=0)return alert('備註或金額無效');return run(async()=>{const result=await req('PATCH','trip_fund_transactions?id=eq.'+encodeURIComponent(x.id)+'&select=id',{description:description.trim(),amount_jpy:amount});if(!Array.isArray(result)||result.length!==1)throw Error('編輯未成功，請確認資料庫權限及餘額保護');await load()})}
   const fd=e.target.closest('[data-fund-delete]');if(fd){if(!confirm('確定刪除這筆公積金收支？將影響所有人的公積金餘額。'))return;return run(async()=>{const result=await req('DELETE','trip_fund_transactions?id=eq.'+encodeURIComponent(fd.dataset.fundDelete)+'&select=id');if(!Array.isArray(result)||result.length!==1)throw Error('刪除未成功，請確認資料庫權限及餘額保護');await load()})}
  });
