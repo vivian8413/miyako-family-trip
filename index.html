@@ -1704,7 +1704,28 @@ document.addEventListener('change',async event=>{
    if(!confirm('確定修改正式共用費用？所有家人的分帳與應收應付金額會重新計算。'))return;
    return run(async()=>{const result=await req('PATCH','trip_expenses?id=eq.'+encodeURIComponent(x.id)+'&select=id',{description:description.trim(),amount,currency,rate,payer,members});if(!Array.isArray(result)||result.length!==1)throw Error('編輯未成功，請確認資料庫權限');await load()});
   }
-  const fe=e.target.closest('[data-fund-edit]');if(fe){const x=fund.find(x=>String(x.id)===fe.dataset.fundEdit);if(!x)return;const description=prompt('修改公積金備註',x.description);if(description===null)return;const amountText=prompt('修改日幣金額',String(x.amount_jpy));if(amountText===null)return;const amount=Number(amountText);if(!description.trim()||!Number.isSafeInteger(amount)||amount<=0)return alert('備註或金額無效');return run(async()=>{const result=await req('PATCH','trip_fund_transactions?id=eq.'+encodeURIComponent(x.id)+'&select=id',{description:description.trim(),amount_jpy:amount});if(!Array.isArray(result)||result.length!==1)throw Error('編輯未成功，請確認資料庫權限及餘額保護');await load()})}
+  const fe=e.target.closest('[data-fund-edit]');if(fe){const x=fund.find(x=>String(x.id)===fe.dataset.fundEdit);if(!x)return;
+   const original=String(x.description||'');
+   const match=original.match(/^([^｜|]+)[｜|](.*)$/);
+   const originalPerson=match?match[1].trim():'';
+   const originalNote=match?match[2].trim():original;
+   const nicknameOptions=Array.from({length:9},(_,i)=>{
+    const slot=i+1,raw=window.__miyakoExpenseSlotNames?.[slot]||document.querySelector('#approved-payer-select option[value="'+slot+'"]')?.textContent?.trim()||'家人 '+slot;
+    return String(raw).replace(/\\s*\\(我\\)\\s*$/,'').trim();
+   });
+   const people=[...new Set([originalPerson,...nicknameOptions].filter(Boolean))];
+   const personText=prompt('修改繳納者：請輸入下列編號，或直接輸入正確的家人暱稱\\n'+people.map((name,i)=>(i+1)+'．'+name).join('\\n'),String(Math.max(1,people.indexOf(originalPerson)+1)));
+   if(personText===null)return;
+   const chosen=personText.trim(),number=Number(chosen);
+   const person=/^\\d+$/.test(chosen)&&number>=1&&number<=people.length?people[number-1]:chosen;
+   if(!person||person.length>40||/[｜|\\n\\r]/.test(person))return alert('請選擇有效的繳納者暱稱');
+   const noteText=prompt('修改公積金備註',originalNote);if(noteText===null)return;
+   const amountText=prompt('修改日幣金額',String(x.amount_jpy));if(amountText===null)return;
+   const amount=Number(amountText),description=person+'｜'+noteText.trim();
+   if(!noteText.trim()||description.length>100||!Number.isSafeInteger(amount)||amount<=0)return alert('備註或金額無效');
+   if(!confirm('確認修改這筆公積金？\\n繳納者：'+person+'\\n金額：¥'+amount.toLocaleString('ja-JP')))return;
+   return run(async()=>{const result=await req('PATCH','trip_fund_transactions?id=eq.'+encodeURIComponent(x.id)+'&select=id',{description,amount_jpy:amount});if(!Array.isArray(result)||result.length!==1)throw Error('編輯未成功，請確認資料庫權限及餘額保護');await load()})
+  }
   const fd=e.target.closest('[data-fund-delete]');if(fd){if(!confirm('確定刪除這筆公積金收支？將影響所有人的公積金餘額。'))return;return run(async()=>{const result=await req('DELETE','trip_fund_transactions?id=eq.'+encodeURIComponent(fd.dataset.fundDelete)+'&select=id');if(!Array.isArray(result)||result.length!==1)throw Error('刪除未成功，請確認資料庫權限及餘額保護');await load()})}
  });
  document.addEventListener('input',e=>{if(e.target.closest('#fund-deposit-form')){const f=el('fund-deposit-form'),v=Number(f?.querySelector('[name=amount_jpy]')?.value||0),total=el('fund-batch-total');if(total)total.textContent='¥'+(Number.isSafeInteger(v)&&v>0?v*9:0).toLocaleString('ja-JP')}});
