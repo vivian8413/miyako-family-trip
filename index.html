@@ -1708,11 +1708,8 @@ document.addEventListener('change',async event=>{
    const x=fund.find(v=>String(v.id)===fe.dataset.fundEdit);if(!x)return;
    const original=String(x.description||''),match=original.match(/^([^｜|]+)[｜|](.*)$/);
    const currentPerson=match?match[1].trim():'',note=match?match[2].trim():original;
-   const options=Array.from({length:9},(_,i)=>{
-    const slot=i+1;
-    const name=window.__miyakoExpenseSlotNames?.[slot]||document.querySelector('#approved-payer-select option[value="'+slot+'"]')?.textContent?.trim()||'家人 '+slot;
-    return String(name).replace(/\s*（我）\s*$/,'').trim();
-   });
+   const slotNames=window.__miyakoExpenseSlotNames||{};
+   const options=Object.entries(slotNames).filter(([slot,name])=>Number(slot)>=1&&Number(slot)<=9&&String(name||'').trim()).sort((a,b)=>Number(a[0])-Number(b[0])).map(([,name])=>String(name).replace(/\s*（我）\s*$/,'').trim());
    const people=[...new Set([...options,currentPerson].filter(Boolean))];
    document.getElementById('fund-payer-edit-dialog')?.remove();
    const overlay=document.createElement('div');overlay.id='fund-payer-edit-dialog';
