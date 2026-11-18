@@ -888,16 +888,25 @@ document.addEventListener('change',e=>{if(e.target.id==='draft-day-picker'){
  if(t&&isValidTripDate(date)&&date>=t.start&&date<=t.end){state.draftDay=date;render()}
  else alert('請選擇旅行期間的日期');
 }});
+// iOS wheel picker may emit an intermediate blank value before the user taps Done.
+// Save only a complete clock value; never show a premature validation alert.
 document.addEventListener('change',e=>{
  const input=e.target.closest('[data-event-start-time]');
  if(!input||!state.itineraryEditMode)return;
- const i=Number(input.dataset.eventStartTime),time=input.value;
- if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))return alert('請選擇有效的開始時間');
+ const i=Number(input.dataset.eventStartTime);
+ const raw=String(input.value||'').trim();
+ const match=/^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(raw);
+ if(!match)return; // Ignore intermediate native picker values.
+ const hour=Number(match[1]),minute=Number(match[2]);
+ if(hour>23||minute>59)return;
+ const time=String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0');
  const events=dayEvents().map(x=>[...x]);
- if(!events[i])return;
- const editedTitle=events[i][1];events[i][0]=time;
+ if(!events[i]||events[i][0]===time)return;
+ const editedTitle=events[i][1];
+ events[i][0]=time;
  events.sort((a,b)=>(clockToMin(a[0])??9999)-(clockToMin(b[0])??9999));
- saveDay(events);state.editingEvent=null;
+ try{saveDay(events)}catch(err){alert('行程時間儲存失敗，請稍後重試');return}
+ state.editingEvent=null;
  addNotification('🕒 行程時間已修改',days[state.day].name+' · '+editedTitle+' → '+time);
  render();
 });
