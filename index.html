@@ -1549,9 +1549,9 @@ document.addEventListener('change',async event=>{
   // The original transactions remain independent and editable.
   const groupLabel=x=>{
    if(x._kind!=='deposit')return '';
-   const description=String(x.description||'').replace(/^家人\\s*\\d+\\s*[｜|]\\s*/,'').replace(/^.*?\\s*[｜|]\\s*/,'').trim();
-   const m=description.match(/(?:\\d{1,2}\\s*[\\/／.-]\\s*\\d{1,2}\\s*)?第[一二三四五六七八九十\\d]+次(?:收|繳|繳納)?公積金/);
-   return m?m[0].replace(/\\s+/g,''):'';
+   const description=String(x.description||'').replace(/^家人\s*\d+\s*[｜|]\s*/,'').replace(/^.*?\s*[｜|]\s*/,'').trim();
+   const m=description.match(/(?:\d{1,2}\s*[\/／.-]\s*\d{1,2}\s*)?第[一二三四五六七八九十\d]+次(?:收|繳|繳納)?公積金/);
+   return m?m[0].replace(/\s+/g,''):'';
   };
   const groups=new Map();
   for(const x of all){const key=groupLabel(x);if(key){if(!groups.has(key))groups.set(key,[]);groups.get(key).push(x)}}
