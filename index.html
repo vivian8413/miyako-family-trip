@@ -681,7 +681,7 @@ function tripClock(date,clock,origin='Asia/Tokyo'){
 }
 const itineraryDate=i=>days[i]?.date||`2026-11-${String(18+i).padStart(2,'0')}`;
 const eventOrigin=(dayIndex,event)=>/抵達桃園/.test(event[1]||'')?'Asia/Taipei':'Asia/Tokyo';
-const itineraryClock=(event)=>tripClock(itineraryDate(state.day),event[0],eventOrigin(state.day,event));
+const itineraryClock=(event)=>event[0]; // Display itinerary in the local time at each destination (Japan, except Taiwan arrival).
 // The today shortcut follows the device's local calendar, not a fixed trip range.
 // Match explicit itinerary dates so future added days can participate too.
 function phoneTodayDate(){
@@ -690,7 +690,7 @@ function phoneTodayDate(){
 }
 function miyakoTodayDay(){return days.findIndex(d=>d.date===phoneTodayDate());}
 
-const fixedEvent=(e)=>e[4]===true||/已預訂|已預約/.test(e[2]||'')||/JX887 起飛|抵達桃園|Canopy 正式入住/.test(e[1]||'');
+const fixedEvent=(e)=>e[1]==='MONKEY NAVY 浮潛'?false:(e[4]===true||/已預訂|已預約/.test(e[2]||'')||/JX887 起飛|抵達桃園|Canopy 正式入住/.test(e[1]||''));
 const durationOf=e=>Math.max(15,Number(e[3])||30);
 const dayBase=()=>days[state.day].events.map(e=>[...e]);
 const clockToMin=t=>{let m=/^(\d{1,2}):(\d{2})$/.exec(t||'');return m?+m[1]*60+(+m[2]):null};
@@ -700,7 +700,7 @@ try{
  const oldDay=state.editedDays?.[1];
  if(Array.isArray(oldDay)){
   const snorkel=oldDay.find(e=>e[1]==='MONKEY NAVY 浮潛');
-  if(snorkel&&snorkel[0]==='09:00'){
+  if(snorkel&&['09:00','08:00'].includes(snorkel[0])){
    snorkel[0]='10:30';
    if(/至 10:30/.test(snorkel[2]||''))snorkel[2]='已預約；請向店家確認實際集合與結束時間';
    put('editedDays',state.editedDays);
@@ -736,7 +736,7 @@ function home(){return `<section class="hero"><div class="eyebrow">SUN, SEA & A 
 function flights(){const routes=[{date:'11/18（三）・去程',flight:'JX886',from:'桃園國際機場 TPE',fromTerminal:'第一航廈 T1',depart:'10:55',to:'下地島機場 SHI',toTerminal:'日本・宮古島',arrive:'13:00',duration:'1 小時 05 分',note:'台灣時間出發、日本時間抵達'},{date:'11/21（六）・回程',flight:'JX887',from:'下地島機場 SHI',fromTerminal:'日本・宮古島',depart:'14:00',to:'桃園國際機場 TPE',toTerminal:'第一航廈 T1',arrive:'14:10',duration:'1 小時 10 分',note:'日本時間出發、台灣時間抵達'}];return pageTitle('✈️ 航班資訊','星宇航空 STARLUX · 2026 宮古島家庭旅遊')+`<div class="note">🕒 目前顯示：${escapeHtml(tripZoneLabel())}。起飛與抵達依手機時區換算；機票原始當地時間不變。</div>`+routes.map(r=>`<section class="card"><div class="row"><span class="tag">${r.date}</span><b>${r.flight}</b></div><div class="flight-route"><div class="flight-stop"><div class="flight-time">${tripClock(r.date.startsWith('11/18')?'2026-11-18':'2026-11-21',r.depart,r.from.includes('桃園')?'Asia/Taipei':'Asia/Tokyo')}</div><div class="flight-place">${r.from}</div><div class="muted">${r.fromTerminal}</div></div><div class="flight-arrow">✈️</div><div class="flight-stop"><div class="flight-time">${tripClock(r.date.startsWith('11/18')?'2026-11-18':'2026-11-21',r.arrive,r.to.includes('桃園')?'Asia/Taipei':'Asia/Tokyo')}</div><div class="flight-place">${r.to}</div><div class="muted">${r.toTerminal}</div></div></div><div class="flight-meta"><span>飛行 ${r.duration}</span><span>機票原始：${r.note}（${r.depart} → ${r.arrive}）</span></div></section>`).join('')+`<div class="card"><h3>🕒 時差提醒</h3><p>日本比台灣快 1 小時（日本 UTC+9／台灣 UTC+8）。</p><p class="muted">上方大字時間依手機時區顯示；機票原始時間依各機場當地時間。搭機請以機票上的當地時間為準。</p></div><div class="card"><h3>🧳 每人行李額度</h3><div class="row"><b>託運行李</b><b>23 kg × 1 件</b></div><div class="row" style="margin-top:12px"><b>手提行李</b><b>7 kg × 1 件</b></div><p class="notice">航班與行李資料依旅行規劃填入，出發前請以實際機票與航空公司最新規定確認。</p></div>`}
 function itinerary(){const ev=dayEvents();const edit=state.editingEvent;const canEdit=state.itineraryEditMode;
  const durationButtons=(val)=>[30,45,60,90].map(n=>`<label class="duration-choice"><input type="radio" name="duration" value="${n}" ${Number(val)===n?'checked':''}><span>${n} 分</span></label>`).join('');
- return pageTitle('🗓️ 每日行程','固定預訂不移動 · 彈性行程可自由新增、修改及調整停留時間')+`<div class="note">🕒 目前顯示：${escapeHtml(tripZoneLabel())}。行程原始時間以日本當地時間保存；抵達桃園以台灣時間保存。編輯時使用原始當地時間。</div>`+`<div class="tabs" aria-label="行程日期">${days.map((x,i)=>({day:x,i})).sort((a,b)=>a.day.date.localeCompare(b.day.date)).map(({day:x,i})=>`<button class="tab ${i===state.day?'active':''}" data-action="day" data-i="${i}">${escapeHtml(x.name)}${miyakoTodayDay()===i?' · 今天':''}</button>`).join('')}${canEdit?`<button type="button" class="tab" data-action="toggle-date-adder" aria-label="新增日期" aria-expanded="${state.showDateAdder}" aria-controls="new-date-form">＋</button>`:''}</div>`+
+ return pageTitle('🗓️ 每日行程','固定預訂不移動 · 彈性行程可自由新增、修改及調整停留時間')+`<div class="note">🕒 行程顯示當地時間：宮古島使用日本時間（JST），抵達桃園使用台灣時間。</div>`+`<div class="tabs" aria-label="行程日期">${days.map((x,i)=>({day:x,i})).sort((a,b)=>a.day.date.localeCompare(b.day.date)).map(({day:x,i})=>`<button class="tab ${i===state.day?'active':''}" data-action="day" data-i="${i}">${escapeHtml(x.name)}${miyakoTodayDay()===i?' · 今天':''}</button>`).join('')}${canEdit?`<button type="button" class="tab" data-action="toggle-date-adder" aria-label="新增日期" aria-expanded="${state.showDateAdder}" aria-controls="new-date-form">＋</button>`:''}</div>`+
  (canEdit&&state.showDateAdder?`<div class="card" id="new-date-form"><h3>📆 新增行程日期</h3><form id="itinerary-date-form"><label class="label" for="new-itinerary-date">選擇日期</label><input class="field" id="new-itinerary-date" name="date" type="date" required><p class="muted">日期按時間先後顯示；新增與刪除日期只影響這台手機，不會修改原本宮古島四天行程。</p><button type="submit" class="btn full">＋ 建立這一天</button></form></div>`:'')+
   (days[state.day]?.date==="2026-11-19"?`<div class="card" style="background:#eef8f1;border:1px solid #c7e2d4"><h3>🍽️ 市區自由午餐・美食推薦</h3><p>浮潛結束後大家自由選餐廳！漢堡、宮古麵、定食、甜點，點開就能找喜歡的料理並導航。</p><a class="btn full" href="./miyako-food.html?v=20261109-aosora-verified2" style="display:block;text-align:center;text-decoration:none">🍔 查看市區美食推薦 →</a></div>`:"")+
  `<div class="row" style="justify-content:space-between;align-items:center;gap:10px;margin:10px 0"><span class="muted" style="font-size:12px">📱 手機今天：${phoneTodayDate()}${miyakoTodayDay()<0?' · 尚無當日行程':''}</span><button class="btn secondary" type="button" data-action="trip-today" ${state.day===miyakoTodayDay()?'disabled':''}>📅 ${state.day===miyakoTodayDay()?'正在看今天':'跳到今天'}</button></div>`+
