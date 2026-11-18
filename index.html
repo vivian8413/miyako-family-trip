@@ -1543,7 +1543,7 @@ document.addEventListener('change',async event=>{
   const all=[...rows.map(x=>({...x,_kind:'personal'})),...fund.map(x=>({...x,_kind:x.transaction_type}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   const renderEntry=x=>{
    if(x._kind==='personal')return '<div class="expense"><div class="row"><b>'+safe(x.description)+'</b><b>'+personalDisplay(x)+'</b></div><p class="muted">原始 '+safe(x.currency)+' '+Number(x.amount).toLocaleString('zh-TW')+' · 🙋 家人 '+Number(x.payer)+' 代墊 · '+membersOf(x).length+' 人分攤</p><span data-ledger-row-actions style="display:'+(ledgerEditMode?'inline':'none')+'"><button class="btn secondary" type="button" data-cloud-expense-edit="'+safe(x.id)+'">編輯</button> <button class="btn danger" type="button" data-cloud-expense-delete="'+safe(x.id)+'">刪除</button></span></div>';
-   return '<div class="expense"><div class="row"><b>'+safe(x.description)+'</b><b>'+money(Number(x.amount_jpy))+'</b></div><p class="muted">原始 ¥'+Number(x.amount_jpy).toLocaleString('zh-TW')+' · '+(x._kind==='deposit'?'🏦 公積金繳納':'🏦 公積金支付')+' · '+safe(new Date(x.created_at).toLocaleString('zh-TW'))+'</p><span data-ledger-row-actions style="display:'+(ledgerEditMode?'inline':'none')+'"><button class="btn secondary" type="button" data-fund-edit="'+safe(x.id)+'">編輯</button> <button class="btn danger" type="button" data-fund-delete="'+safe(x.id)+'">刪除</button></span></div>';
+   const shownDescription=String(x.description||'').replace(/^家人 ([1-9])(?=\s*[｜|])/,(_,slot)=>window.__miyakoExpenseSlotNames?.[Number(slot)]||'家人 '+slot);return '<div class="expense"><div class="row"><b>'+safe(shownDescription)+'</b><b>'+money(Number(x.amount_jpy))+'</b></div><p class="muted">原始 ¥'+Number(x.amount_jpy).toLocaleString('zh-TW')+' · '+(x._kind==='deposit'?'🏦 公積金繳納':'🏦 公積金支付')+' · '+safe(new Date(x.created_at).toLocaleString('zh-TW'))+'</p><span data-ledger-row-actions style="display:'+(ledgerEditMode?'inline':'none')+'"><button class="btn secondary" type="button" data-fund-edit="'+safe(x.id)+'">編輯</button> <button class="btn danger" type="button" data-fund-delete="'+safe(x.id)+'">刪除</button></span></div>';
   };
   // Only group deposits with a recognizable collection-round label.
   // The original transactions remain independent and editable.
@@ -1710,7 +1710,7 @@ document.addEventListener('change',async event=>{
    const currentPerson=match?match[1].trim():'',note=match?match[2].trim():original;
    const slotNames=window.__miyakoExpenseSlotNames||{};
    const options=Object.entries(slotNames).filter(([slot,name])=>Number(slot)>=1&&Number(slot)<=9&&String(name||'').trim()).sort((a,b)=>Number(a[0])-Number(b[0])).map(([,name])=>String(name).replace(/\s*（我）\s*$/,'').trim());
-   const people=[...new Set([...options,currentPerson].filter(Boolean))];
+   const people=[...new Set([...options,...(!/^家人 [1-9]$/.test(currentPerson)?[currentPerson]:[])].filter(Boolean))];if(!options.length){alert('尚未載入家人暱稱，請按更新帳本後再試，避免存入家人編號。');return}
    document.getElementById('fund-payer-edit-dialog')?.remove();
    const overlay=document.createElement('div');overlay.id='fund-payer-edit-dialog';
    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
